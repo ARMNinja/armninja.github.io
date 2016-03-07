@@ -1,3 +1,8 @@
+---
+layout: post
+title: Reverse Engineering Samsung S6 Modem
+---
+
 So I was a little late to the game, and just got my hands on a Samsung Galaxy S6, specifically the `SM-G920F` which will be the topic of discussion in this post. I am quite curious as to understanding the structure of the device's `modem.bin` file. While I haven't been able to get a de-obfuscated/decrypted version of `modem.bin` yet, hopefully this post will help others quickly get up-to-speed and assist in the pursuit of one. 
 
 Anyone interested in helping or contributing can hit me with the Tweets `@theqlabs` or submit a PR.
