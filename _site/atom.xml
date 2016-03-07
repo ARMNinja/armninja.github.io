@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>ARM Ninja</title>
+ <link href="http://arm.ninja/atom.xml" rel="self"/>
+ <link href="http://arm.ninja/"/>
+ <updated>2016-03-06T16:11:17-08:00</updated>
+ <id>http://arm.ninja</id>
+ <author>
+   <name>Andrew Righter</name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>Reverse Engineering Samsung S6 Modem</title>
+   <link href="http://arm.ninja/2016/03/04/reverse-engineering-samsung-s6-modem/"/>
+   <updated>2016-03-04T00:00:00-08:00</updated>
+   <id>http://arm.ninja/2016/03/04/reverse-engineering-samsung-s6-modem</id>
+   <content type="html">&lt;p&gt;So I was a little late to the game, and just got my hands on a Samsung Galaxy S6, specifically the &lt;code class=&quot;highlighter-rouge&quot;&gt;SM-G920F&lt;/code&gt; which will be the topic of discussion in this post. I am quite curious as to understanding the structure of the device’s &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; file. While I haven’t been able to get a de-obfuscated/decrypted version of &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; yet, hopefully this post will help others quickly get up-to-speed and assist in the pursuit of one.&lt;/p&gt;
+
+&lt;p&gt;Anyone interested in helping or contributing can hit me with the Tweets &lt;code class=&quot;highlighter-rouge&quot;&gt;@theqlabs&lt;/code&gt; or submit a PR.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;TL;DR - i do not have a decrypted modem.bin yet, but here are all my notes, send help. &amp;lt;3&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;obtaining-files&quot;&gt;Obtaining Files&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;Download &lt;strong&gt;Samsung&lt;/strong&gt; &lt;a href=&quot;http://www.sammobile.com&quot;&gt;SM-G920F&lt;/a&gt; &lt;strong&gt;Galaxy S6&lt;/strong&gt; Firmware&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&quot;extracting-files&quot;&gt;Extracting Files&lt;/h1&gt;
+&lt;p&gt;I had some issues using &lt;code class=&quot;highlighter-rouge&quot;&gt;UnZip 5.52&lt;/code&gt; on OS X (PK compat. error), so instead I used &lt;code class=&quot;highlighter-rouge&quot;&gt;UnZip 6.00&lt;/code&gt; on Ubuntu 15.04.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;unzip &amp;lt;firmware.zip&amp;gt;
+mv &amp;lt;firmware.tar.md5&amp;gt; &amp;lt;firmware.tar&amp;gt;
+tar xvf &amp;lt;firmware.tar&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;You should end up with something like:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;boot.img
+cache.img
+cm.bin
+hidden.img
+modem.bin
+recovery.img
+sboot.bin
+system.img
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h1 id=&quot;deconstructing-modembin&quot;&gt;Deconstructing &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt;&lt;/h1&gt;
+
+&lt;p&gt;&lt;strong&gt;Endianness&lt;/strong&gt;: Most of what we will be seeing in &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; is comprised of Little-Endian format. That is, the Most Significant Byte is located at the highest memory address. &lt;strong&gt;Example&lt;/strong&gt;: If you look at &lt;code class=&quot;highlighter-rouge&quot;&gt;SIZE&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; below, the bytes are ordered as &lt;code class=&quot;highlighter-rouge&quot;&gt;48 2B 00 00&lt;/code&gt; but read and sent as &lt;code class=&quot;highlighter-rouge&quot;&gt;0x2B48&lt;/code&gt; dropping the &lt;code class=&quot;highlighter-rouge&quot;&gt;00&lt;/code&gt;s as you would in decimal for anything before a non-zero number.&lt;/p&gt;
+
+&lt;h3 id=&quot;toc0--toc&quot;&gt;TOC[0] = TOC&lt;/h3&gt;
+
+&lt;p&gt;Opening &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; in a Hex Editor gives some immediate insight into what is happening with this file.&lt;/p&gt;
+
+&lt;p&gt;The first &lt;code class=&quot;highlighter-rouge&quot;&gt;0x200&lt;/code&gt; bytes are called the &lt;code class=&quot;highlighter-rouge&quot;&gt;TOC&lt;/code&gt;, I am going to make a slightly ambitious guess that this stands for &lt;code class=&quot;highlighter-rouge&quot;&gt;Table of Contents&lt;/code&gt;. Its function is to provide information about the file itself including all [5] of its sections, namely: &lt;code class=&quot;highlighter-rouge&quot;&gt;TOC&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;NV&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;OFFSET&lt;/code&gt;, as well as providing an index into these sections.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 3.22.21 PM.png&quot; alt=&quot;header&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;While the above screen shot shows only addresses &lt;code class=&quot;highlighter-rouge&quot;&gt;0000h-0090h&lt;/code&gt; the remaining bytes are all zero-padded &lt;code class=&quot;highlighter-rouge&quot;&gt;0x200&lt;/code&gt; bytes in total.&lt;/p&gt;
+
+&lt;h3 id=&quot;toc1--boot&quot;&gt;TOC[1] = BOOT&lt;/h3&gt;
+
+&lt;p&gt;If you want to isolate the &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; section of the file you would do so by calculating the offsets based on the &lt;code class=&quot;highlighter-rouge&quot;&gt;SIZE&lt;/code&gt; parameter from the header file. So for our example it would look like the following:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;dd if=modem.bin bs=1 skip=512 count=11080 of=modem.bin_boot
+
+# calculated by using the 0x200 byte offset in decimal.
+skip=512
+ 
+# calculated by using the 0x2B48 byte SIZE of BOOT in decimal.
+count=11080
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 4.51.03 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Address&lt;/th&gt;
+      &lt;th&gt;Bytes&lt;/th&gt;
+      &lt;th&gt;Length&lt;/th&gt;
+      &lt;th&gt;Description&lt;/th&gt;
+      &lt;th&gt;Value&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0020&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;0028&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;42 4F 4F 54&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4-8 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;NAME&lt;/code&gt; of Section&lt;/td&gt;
+      &lt;td&gt;BOOT&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0028&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;002C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unused&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;002C&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;0030&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 02 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unknown&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0030&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;0034&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unknown&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0034&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;0038&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;48 2B 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;SIZE&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x2B48&lt;/code&gt; bytes&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0038&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;003C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;45 03 27 5E&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;CRC&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x5E270345&lt;/code&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;003C&lt;/code&gt;-&lt;code class=&quot;highlighter-rouge&quot;&gt;0040&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;INDEX&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;Index into &lt;code class=&quot;highlighter-rouge&quot;&gt;TOC&lt;/code&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h3 id=&quot;toc2--main&quot;&gt;TOC[2] = MAIN&lt;/h3&gt;
+&lt;p&gt;Similar to &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; you would isolate &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt; with the following &lt;code class=&quot;highlighter-rouge&quot;&gt;dd&lt;/code&gt; command:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;dd if=modem.bin bs=1 skip=11592 count=40394816 of=modem.bin_main
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 3.21.20 PM.png&quot; alt=&quot;MAIN&quot; /&gt;&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Address&lt;/th&gt;
+      &lt;th&gt;Bytes&lt;/th&gt;
+      &lt;th&gt;Length&lt;/th&gt;
+      &lt;th&gt;Description&lt;/th&gt;
+      &lt;th&gt;Value&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0040&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0048&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;4D 41 49 4E&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4-8 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;NAME&lt;/code&gt; of Section&lt;/td&gt;
+      &lt;td&gt;MAIN&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0048&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;004C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unused&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;004C&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0050&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;60 2D 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;VERSION&lt;/code&gt;*&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x2D60&lt;/code&gt; 1.16.16&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0050&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0054&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 40&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unknown&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0054&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0058&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;40 60 68 02&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;SIZE&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x2686040&lt;/code&gt; or 40,394,816 bytes or ~40MB&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0058&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;005C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;24 BD DF 93&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;CRC&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x93DFBD24&lt;/code&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;005C&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0060&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;02 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;INDEX&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;Has to do with index into &lt;code class=&quot;highlighter-rouge&quot;&gt;TOC&lt;/code&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;*&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;VERSION&lt;/code&gt; is a guess based on analyzing multiple firmwares, seen both &lt;code class=&quot;highlighter-rouge&quot;&gt;0x2D00&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;0x2D60&lt;/code&gt;. Will confirm, should be able to reverse &lt;code class=&quot;highlighter-rouge&quot;&gt;cbd&lt;/code&gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;prepare_boot_args&lt;/code&gt; or related functions to ensure the above is correct.&lt;/p&gt;
+
+&lt;h3 id=&quot;toc3--nv&quot;&gt;TOC[3] = NV&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-03-01 at 12.29.54 AM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Address&lt;/th&gt;
+      &lt;th&gt;Bytes&lt;/th&gt;
+      &lt;th&gt;Length&lt;/th&gt;
+      &lt;th&gt;Description&lt;/th&gt;
+      &lt;th&gt;Value&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0060&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0068&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;4E 56 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4-8 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;NAME&lt;/code&gt; of Section&lt;/td&gt;
+      &lt;td&gt;NV&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0068&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;006C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unused&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;006C&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0070&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unknown&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0070&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0074&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 EE 47&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;Unknown&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0074&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0078&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 10 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;SIZE&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;NV&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0x2B48&lt;/code&gt; bytes&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;0078&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;007C&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;00 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;CRC&lt;/code&gt; of &lt;code class=&quot;highlighter-rouge&quot;&gt;NV&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;N/A&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;007C&lt;/code&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;0080&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;03 00 00 00&lt;/code&gt;&lt;/strong&gt;&lt;/td&gt;
+      &lt;td&gt;4 Bytes&lt;/td&gt;
+      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;INDEX&lt;/code&gt;&lt;/td&gt;
+      &lt;td&gt;Has to do with index into &lt;code class=&quot;highlighter-rouge&quot;&gt;TOC&lt;/code&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h3 id=&quot;toc4--offset&quot;&gt;TOC[4] = OFFSET&lt;/h3&gt;
+&lt;p&gt;I have never seen &lt;code class=&quot;highlighter-rouge&quot;&gt;cbd&lt;/code&gt; process or send this section, so I’m assuming its use is local to the &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; file and not to the CP. Perhaps the &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; is using it in some way?&lt;/p&gt;
+
+&lt;h1 id=&quot;decoding-boot&quot;&gt;Decoding &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;&lt;/h1&gt;
+&lt;p&gt;So you may have noticed some patterns while looking at the &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; code, in our example located from &lt;code class=&quot;highlighter-rouge&quot;&gt;0200-02D48h&lt;/code&gt; and in case you didn’t I’m going to show you a trick I learned from the &lt;strong&gt;Practical Reverse Engineering&lt;/strong&gt; &lt;a href=&quot;http://smile.amazon.com/dp/1118787315&quot;&gt;book&lt;/a&gt; by Dang et al. As they so correctly state:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;The ability to recognize instruction boundaries in a seemingly random blob of data is important. Maybe you will appreciate it later.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Also, say &lt;strong&gt;Dang et al.&lt;/strong&gt; out loud. Ha!&lt;/p&gt;
+
+&lt;p&gt;Let’s review a chunk of &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 8.41.40 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;TL;DR&lt;/strong&gt; - These are ARM instructions and we’re about to disassemble the sh*t out of them.&lt;/p&gt;
+
+&lt;p&gt;Looking at this blob, it’s easy to notice a pattern. Almost every &lt;code class=&quot;highlighter-rouge&quot;&gt;4th byte&lt;/code&gt; ends in &lt;code class=&quot;highlighter-rouge&quot;&gt;0xE*&lt;/code&gt; - as it turns out, ARM branch instructions use the Most Significant Bits for a conditional code. These &lt;a href=&quot;http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html&quot;&gt;codes&lt;/a&gt; control the execution of instructions and are typically based on the flags set in the &lt;a href=&quot;http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0413d/ch02s02s02.html&quot;&gt;Application Program Status Registers&lt;/a&gt; or &lt;code class=&quot;highlighter-rouge&quot;&gt;APSR&lt;/code&gt;. So if you want to tell an instruction to Always Execute, you would use the &lt;code class=&quot;highlighter-rouge&quot;&gt;AL&lt;/code&gt; condition which is &lt;code class=&quot;highlighter-rouge&quot;&gt;1110b&lt;/code&gt; or &lt;code class=&quot;highlighter-rouge&quot;&gt;0xE&lt;/code&gt;. If you have any experience with crackmes this is analogous to switching the &lt;code class=&quot;highlighter-rouge&quot;&gt;Z&lt;/code&gt; or Zero Flag when you wanted to alter the state of a conditional JMP (x86) or B (ARM).&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;TODO&lt;/strong&gt;: Reversing &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; will be part of a later post.&lt;/p&gt;
+
+&lt;h1 id=&quot;cp-boot-process&quot;&gt;CP Boot Process&lt;/h1&gt;
+&lt;p&gt;The following is what I know based on crashing the modem many times, reversing &lt;code class=&quot;highlighter-rouge&quot;&gt;cbd&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;cbd	 # CP Boot Daemon lives in /sbin on the device
+CP 	 # Cell Processor or Modem
+AP	 # Application Processor, where Android OS lives
+BOOT	 # BOOT section of the modem.bin
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h3 id=&quot;devumtsboot0&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;/dev/umts_boot0&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;Opened by &lt;code class=&quot;highlighter-rouge&quot;&gt;rild&lt;/code&gt; used for most I/O involving CP boot chain.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;misc_ioctl:
+	IOCTL_MODEM_ON
+	IOCTL_MODEM_BOOT_ON
+	IOCTL_MODEM_DL_START	 # Starts `mem_start_download`
+	IOCTL_MODEM_SET_TX_LINK	 # Sets Boot Link / Main Link
+	IOCTL_MODEM_FW_UPDATE	 # Called after stages are sent to CP
+	IOCTL_MODEM_BOOT_OFF	 # Sent after Stage 3 is sent to CP
+	IOCTL_MODEM_BOOT_DONE	 # Final IOCTL for CP boot chain
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h3 id=&quot;startshannon333boot&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;start_shannon333_boot&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;…&lt;/p&gt;
+
+&lt;h3 id=&quot;shannonnormalboot&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;shannon_normal_boot&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;LLI STATUS mount&lt;/code&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;preparebootargs&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;prepare_boot_args&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;…&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-28 at 2.21.46 PM.png&quot; alt=&quot;dmsg&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;memstartdownload&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;mem_start_download&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;Triggered by &lt;code class=&quot;highlighter-rouge&quot;&gt;IOCTL_MODEM_DL_START&lt;/code&gt; which grabs the &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; section of &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; and sends it to the CP to start the boot code. The code appears to come from &lt;code class=&quot;highlighter-rouge&quot;&gt;link_device_bootdump.c&lt;/code&gt; in the Android kernel.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;magic == 0x424F4F54&lt;/code&gt; or &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 4.38.10 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;stddlsendbin&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;std_dl_send_bin&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;Sends parsed &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt; to CP RAM via &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; code. I’m thinking the &lt;code class=&quot;highlighter-rouge&quot;&gt;CMD=&lt;/code&gt; are private IOCTL command IDs.&lt;/p&gt;
+
+&lt;h4 id=&quot;stage-1-0x200-bytes-header&quot;&gt;Stage 1: &lt;code class=&quot;highlighter-rouge&quot;&gt;0x200&lt;/code&gt; bytes header&lt;/h4&gt;
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 11.48.04 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;stage-2-0x2686040-bytes-main&quot;&gt;Stage 2: &lt;code class=&quot;highlighter-rouge&quot;&gt;0x2686040&lt;/code&gt; bytes &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt;&lt;/h4&gt;
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-29 at 11.48.20 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;checks-crc-for-main&quot;&gt;Checks &lt;code class=&quot;highlighter-rouge&quot;&gt;CRC&lt;/code&gt; for &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt;&lt;/h4&gt;
+&lt;p&gt;I’m guessing it sends the &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;CRC&lt;/code&gt; to the &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; code to verify&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-02-11 at 8.40.31 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;stage-3-0x100000-bytes-of-nvram&quot;&gt;Stage 3: &lt;code class=&quot;highlighter-rouge&quot;&gt;0x100000&lt;/code&gt; bytes of &lt;code class=&quot;highlighter-rouge&quot;&gt;NVRAM&lt;/code&gt;&lt;/h4&gt;
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-03-01 at 12.02.43 AM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;checkfactorylogpath&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;check_factory_log_path&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;Set to &lt;code class=&quot;highlighter-rouge&quot;&gt;/sdcard/log&lt;/code&gt;/ annoyingly the &lt;code class=&quot;highlighter-rouge&quot;&gt;SM-G920F&lt;/code&gt; does not have an SD CARD slot so uses a shitty Virtual SD daemon that does not appear to work correctly because I can not get anything saved into the directory. Will work on a way to set this, should be fairly simple.&lt;/p&gt;
+
+&lt;h3 id=&quot;stdudlreqresp&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;std_udl_req_resp&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;I’m not sure why &lt;code class=&quot;highlighter-rouge&quot;&gt;cbd&lt;/code&gt; calls these functions, but called before &lt;code class=&quot;highlighter-rouge&quot;&gt;std_dl_send_bin&lt;/code&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;service-mode-functions&quot;&gt;Service Mode Functions&lt;/h1&gt;
+
+&lt;p&gt;There are many service mode functions that Samsung kindly provides that will help during reversing.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;# Enable CP Debugging
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://66336
+
+&amp;lt;device resets&amp;gt;
+
+# Enable CP RAMDUMP
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://9090
+
+&amp;lt;device resets&amp;gt;
+
+# Cause CP RAMDUMP
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://CP_RAMDUMP
+
+# SysDump, Copy to SD Card
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://9900
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Working on writing up my notes on reversing &lt;code class=&quot;highlighter-rouge&quot;&gt;CP Boot Daemon&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt;, hopefully will post soon. I still need to figure out how to organize this damn thing. Hopefully this helps those interested jump-start their research, and feel free to reach out via &lt;a href=&quot;http://twitter.com/theqlabs&quot;&gt;Twitter&lt;/a&gt;.&lt;/p&gt;
+</content>
+ </entry>
+ 
+
+</feed>

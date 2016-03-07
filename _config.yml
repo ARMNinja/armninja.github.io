@@ -1,0 +1,29 @@
+# Dependencies
+markdown:         kramdown
+highlighter:      rouge
+
+#Gems
+gems: [jekyll-gist, jekyll-paginate]
+
+# Permalinks
+permalink:        pretty
+#relative_permalinks: true
+
+# Setup
+title:            ARM Ninja
+tagline:          'Ninjutsu for ARM Ninjas'
+description:      'Notes regarding my passion for <a href="#">learning</a>, <a href="#">reversing</a>, and <a href="#">exploiting</a> ARM systems.'
+url:              http://arm.ninja
+baseurl:          /
+
+author:
+  name:           'Andrew Righter'
+  url:            https://twitter.com/theqlabs
+
+paginate:        5  
+
+# Custom vars
+version:          0.0.1
+
+github:
+  repo:           https://github.com/armninja

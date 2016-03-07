@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      ARM Ninja &middot; Ninjutsu for ARM Ninjas
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+</head>
+
+
+  <body class="theme-base-arm layout-reverse">
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          ARM Ninja
+        </a>
+      </h1>
+      <p class="lead">Notes regarding my passion for <a href="#">learning</a>, <a href="#">reversing</a>, and <a href="#">exploiting</a> ARM systems.</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item active" href="/">Home</a>
+
+      
+
+      
+      
+        
+          
+            <a class="sidebar-nav-item" href="/about/">About</a>
+          
+        
+      
+        
+      
+        
+          
+        
+      
+
+      <span class="sidebar-nav-item">Currently v0.0.1</span>
+    </nav>
+
+    <p>&copy; 2016. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="posts">
+  
+  <div class="post">
+    <h1 class="post-title">
+      <a href="/2016/03/04/reverse-engineering-samsung-s6-modem/">
+        Reverse Engineering Samsung S6 Modem
+      </a>
+    </h1>
+
+    <span class="post-date">04 Mar 2016</span>
+
+    <p>So I was a little late to the game, and just got my hands on a Samsung Galaxy S6, specifically the <code class="highlighter-rouge">SM-G920F</code> which will be the topic of discussion in this post. I am quite curious as to understanding the structure of the device’s <code class="highlighter-rouge">modem.bin</code> file. While I haven’t been able to get a de-obfuscated/decrypted version of <code class="highlighter-rouge">modem.bin</code> yet, hopefully this post will help others quickly get up-to-speed and assist in the pursuit of one.</p>
+
+<p>Anyone interested in helping or contributing can hit me with the Tweets <code class="highlighter-rouge">@theqlabs</code> or submit a PR.</p>
+
+<p><strong>TL;DR - i do not have a decrypted modem.bin yet, but here are all my notes, send help. &lt;3</strong></p>
+
+<h1 id="obtaining-files">Obtaining Files</h1>
+<ul>
+  <li>Download <strong>Samsung</strong> <a href="http://www.sammobile.com">SM-G920F</a> <strong>Galaxy S6</strong> Firmware</li>
+</ul>
+
+<h1 id="extracting-files">Extracting Files</h1>
+<p>I had some issues using <code class="highlighter-rouge">UnZip 5.52</code> on OS X (PK compat. error), so instead I used <code class="highlighter-rouge">UnZip 6.00</code> on Ubuntu 15.04.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>unzip &lt;firmware.zip&gt;
+mv &lt;firmware.tar.md5&gt; &lt;firmware.tar&gt;
+tar xvf &lt;firmware.tar&gt;
+</code></pre>
+</div>
+
+<p>You should end up with something like:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>boot.img
+cache.img
+cm.bin
+hidden.img
+modem.bin
+recovery.img
+sboot.bin
+system.img
+</code></pre>
+</div>
+
+<h1 id="deconstructing-modembin">Deconstructing <code class="highlighter-rouge">modem.bin</code></h1>
+
+<p><strong>Endianness</strong>: Most of what we will be seeing in <code class="highlighter-rouge">modem.bin</code> is comprised of Little-Endian format. That is, the Most Significant Byte is located at the highest memory address. <strong>Example</strong>: If you look at <code class="highlighter-rouge">SIZE</code> of <code class="highlighter-rouge">BOOT</code> below, the bytes are ordered as <code class="highlighter-rouge">48 2B 00 00</code> but read and sent as <code class="highlighter-rouge">0x2B48</code> dropping the <code class="highlighter-rouge">00</code>s as you would in decimal for anything before a non-zero number.</p>
+
+<h3 id="toc0--toc">TOC[0] = TOC</h3>
+
+<p>Opening <code class="highlighter-rouge">modem.bin</code> in a Hex Editor gives some immediate insight into what is happening with this file.</p>
+
+<p>The first <code class="highlighter-rouge">0x200</code> bytes are called the <code class="highlighter-rouge">TOC</code>, I am going to make a slightly ambitious guess that this stands for <code class="highlighter-rouge">Table of Contents</code>. Its function is to provide information about the file itself including all [5] of its sections, namely: <code class="highlighter-rouge">TOC</code>, <code class="highlighter-rouge">BOOT</code>, <code class="highlighter-rouge">MAIN</code>, <code class="highlighter-rouge">NV</code> and <code class="highlighter-rouge">OFFSET</code>, as well as providing an index into these sections.</p>
+
+<p><img src="/assets/Screen Shot 2016-02-29 at 3.22.21 PM.png" alt="header" /></p>
+
+<p>While the above screen shot shows only addresses <code class="highlighter-rouge">0000h-0090h</code> the remaining bytes are all zero-padded <code class="highlighter-rouge">0x200</code> bytes in total.</p>
+
+<h3 id="toc1--boot">TOC[1] = BOOT</h3>
+
+<p>If you want to isolate the <code class="highlighter-rouge">BOOT</code> section of the file you would do so by calculating the offsets based on the <code class="highlighter-rouge">SIZE</code> parameter from the header file. So for our example it would look like the following:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>dd if=modem.bin bs=1 skip=512 count=11080 of=modem.bin_boot
+
+# calculated by using the 0x200 byte offset in decimal.
+skip=512
+ 
+# calculated by using the 0x2B48 byte SIZE of BOOT in decimal.
+count=11080
+</code></pre>
+</div>
+
+<p><img src="/assets/Screen Shot 2016-02-29 at 4.51.03 PM.png" alt="" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Bytes</th>
+      <th>Length</th>
+      <th>Description</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="highlighter-rouge">0020</code>-<code class="highlighter-rouge">0028</code></td>
+      <td><strong><code class="highlighter-rouge">42 4F 4F 54</code></strong></td>
+      <td>4-8 Bytes</td>
+      <td><code class="highlighter-rouge">NAME</code> of Section</td>
+      <td>BOOT</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0028</code>-<code class="highlighter-rouge">002C</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unused</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">002C</code>-<code class="highlighter-rouge">0030</code></td>
+      <td><strong><code class="highlighter-rouge">00 02 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unknown</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0030</code>-<code class="highlighter-rouge">0034</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unknown</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0034</code>-<code class="highlighter-rouge">0038</code></td>
+      <td><strong><code class="highlighter-rouge">48 2B 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">SIZE</code> of <code class="highlighter-rouge">BOOT</code></td>
+      <td><code class="highlighter-rouge">0x2B48</code> bytes</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0038</code>-<code class="highlighter-rouge">003C</code></td>
+      <td><strong><code class="highlighter-rouge">45 03 27 5E</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">CRC</code> of <code class="highlighter-rouge">BOOT</code></td>
+      <td><code class="highlighter-rouge">0x5E270345</code></td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">003C</code>-<code class="highlighter-rouge">0040</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">INDEX</code></td>
+      <td>Index into <code class="highlighter-rouge">TOC</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="toc2--main">TOC[2] = MAIN</h3>
+<p>Similar to <code class="highlighter-rouge">BOOT</code> you would isolate <code class="highlighter-rouge">MAIN</code> with the following <code class="highlighter-rouge">dd</code> command:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>dd if=modem.bin bs=1 skip=11592 count=40394816 of=modem.bin_main
+</code></pre>
+</div>
+
+<p><img src="/assets/Screen Shot 2016-02-29 at 3.21.20 PM.png" alt="MAIN" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Bytes</th>
+      <th>Length</th>
+      <th>Description</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="highlighter-rouge">0040</code> - <code class="highlighter-rouge">0048</code></td>
+      <td><strong><code class="highlighter-rouge">4D 41 49 4E</code></strong></td>
+      <td>4-8 Bytes</td>
+      <td><code class="highlighter-rouge">NAME</code> of Section</td>
+      <td>MAIN</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0048</code> - <code class="highlighter-rouge">004C</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unused</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">004C</code> - <code class="highlighter-rouge">0050</code></td>
+      <td><strong><code class="highlighter-rouge">60 2D 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">VERSION</code>*</td>
+      <td><code class="highlighter-rouge">0x2D60</code> 1.16.16</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0050</code> - <code class="highlighter-rouge">0054</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 40</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unknown</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0054</code> - <code class="highlighter-rouge">0058</code></td>
+      <td><strong><code class="highlighter-rouge">40 60 68 02</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">SIZE</code> of <code class="highlighter-rouge">MAIN</code></td>
+      <td><code class="highlighter-rouge">0x2686040</code> or 40,394,816 bytes or ~40MB</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0058</code> - <code class="highlighter-rouge">005C</code></td>
+      <td><strong><code class="highlighter-rouge">24 BD DF 93</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">CRC</code> of <code class="highlighter-rouge">MAIN</code></td>
+      <td><code class="highlighter-rouge">0x93DFBD24</code></td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">005C</code> - <code class="highlighter-rouge">0060</code></td>
+      <td><strong><code class="highlighter-rouge">02 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">INDEX</code></td>
+      <td>Has to do with index into <code class="highlighter-rouge">TOC</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="highlighter-rouge">*</code> - <code class="highlighter-rouge">VERSION</code> is a guess based on analyzing multiple firmwares, seen both <code class="highlighter-rouge">0x2D00</code> and <code class="highlighter-rouge">0x2D60</code>. Will confirm, should be able to reverse <code class="highlighter-rouge">cbd</code> <code class="highlighter-rouge">prepare_boot_args</code> or related functions to ensure the above is correct.</p>
+
+<h3 id="toc3--nv">TOC[3] = NV</h3>
+
+<p><img src="/assets/Screen Shot 2016-03-01 at 12.29.54 AM.png" alt="" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Bytes</th>
+      <th>Length</th>
+      <th>Description</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="highlighter-rouge">0060</code> - <code class="highlighter-rouge">0068</code></td>
+      <td><strong><code class="highlighter-rouge">4E 56 00 00</code></strong></td>
+      <td>4-8 Bytes</td>
+      <td><code class="highlighter-rouge">NAME</code> of Section</td>
+      <td>NV</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0068</code> - <code class="highlighter-rouge">006C</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unused</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">006C</code> - <code class="highlighter-rouge">0070</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unknown</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0070</code> - <code class="highlighter-rouge">0074</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 EE 47</code></strong></td>
+      <td>4 Bytes</td>
+      <td>Unknown</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0074</code> - <code class="highlighter-rouge">0078</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 10 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">SIZE</code> of <code class="highlighter-rouge">NV</code></td>
+      <td><code class="highlighter-rouge">0x2B48</code> bytes</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">0078</code> - <code class="highlighter-rouge">007C</code></td>
+      <td><strong><code class="highlighter-rouge">00 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">CRC</code> of <code class="highlighter-rouge">NV</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">007C</code> - <code class="highlighter-rouge">0080</code></td>
+      <td><strong><code class="highlighter-rouge">03 00 00 00</code></strong></td>
+      <td>4 Bytes</td>
+      <td><code class="highlighter-rouge">INDEX</code></td>
+      <td>Has to do with index into <code class="highlighter-rouge">TOC</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="toc4--offset">TOC[4] = OFFSET</h3>
+<p>I have never seen <code class="highlighter-rouge">cbd</code> process or send this section, so I’m assuming its use is local to the <code class="highlighter-rouge">modem.bin</code> file and not to the CP. Perhaps the <code class="highlighter-rouge">BOOT</code> is using it in some way?</p>
+
+<h1 id="decoding-boot">Decoding <code class="highlighter-rouge">BOOT</code></h1>
+<p>So you may have noticed some patterns while looking at the <code class="highlighter-rouge">BOOT</code> code, in our example located from <code class="highlighter-rouge">0200-02D48h</code> and in case you didn’t I’m going to show you a trick I learned from the <strong>Practical Reverse Engineering</strong> <a href="http://smile.amazon.com/dp/1118787315">book</a> by Dang et al. As they so correctly state:</p>
+
+<blockquote>
+  <p>The ability to recognize instruction boundaries in a seemingly random blob of data is important. Maybe you will appreciate it later.</p>
+</blockquote>
+
+<p>Also, say <strong>Dang et al.</strong> out loud. Ha!</p>
+
+<p>Let’s review a chunk of <code class="highlighter-rouge">BOOT</code>:</p>
+
+<p><img src="/assets/Screen Shot 2016-02-29 at 8.41.40 PM.png" alt="" /></p>
+
+<p><strong>TL;DR</strong> - These are ARM instructions and we’re about to disassemble the sh*t out of them.</p>
+
+<p>Looking at this blob, it’s easy to notice a pattern. Almost every <code class="highlighter-rouge">4th byte</code> ends in <code class="highlighter-rouge">0xE*</code> - as it turns out, ARM branch instructions use the Most Significant Bits for a conditional code. These <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html">codes</a> control the execution of instructions and are typically based on the flags set in the <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0413d/ch02s02s02.html">Application Program Status Registers</a> or <code class="highlighter-rouge">APSR</code>. So if you want to tell an instruction to Always Execute, you would use the <code class="highlighter-rouge">AL</code> condition which is <code class="highlighter-rouge">1110b</code> or <code class="highlighter-rouge">0xE</code>. If you have any experience with crackmes this is analogous to switching the <code class="highlighter-rouge">Z</code> or Zero Flag when you wanted to alter the state of a conditional JMP (x86) or B (ARM).</p>
+
+<p><strong>TODO</strong>: Reversing <code class="highlighter-rouge">BOOT</code> will be part of a later post.</p>
+
+<h1 id="cp-boot-process">CP Boot Process</h1>
+<p>The following is what I know based on crashing the modem many times, reversing <code class="highlighter-rouge">cbd</code> and <code class="highlighter-rouge">BOOT</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>cbd	 # CP Boot Daemon lives in /sbin on the device
+CP 	 # Cell Processor or Modem
+AP	 # Application Processor, where Android OS lives
+BOOT	 # BOOT section of the modem.bin
+</code></pre>
+</div>
+
+<h3 id="devumtsboot0"><code class="highlighter-rouge">/dev/umts_boot0</code></h3>
+<p>Opened by <code class="highlighter-rouge">rild</code> used for most I/O involving CP boot chain.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>misc_ioctl:
+	IOCTL_MODEM_ON
+	IOCTL_MODEM_BOOT_ON
+	IOCTL_MODEM_DL_START	 # Starts `mem_start_download`
+	IOCTL_MODEM_SET_TX_LINK	 # Sets Boot Link / Main Link
+	IOCTL_MODEM_FW_UPDATE	 # Called after stages are sent to CP
+	IOCTL_MODEM_BOOT_OFF	 # Sent after Stage 3 is sent to CP
+	IOCTL_MODEM_BOOT_DONE	 # Final IOCTL for CP boot chain
+</code></pre>
+</div>
+
+<h3 id="startshannon333boot"><code class="highlighter-rouge">start_shannon333_boot</code></h3>
+<p>…</p>
+
+<h3 id="shannonnormalboot"><code class="highlighter-rouge">shannon_normal_boot</code></h3>
+<p><code class="highlighter-rouge">LLI STATUS mount</code></p>
+
+<h3 id="preparebootargs"><code class="highlighter-rouge">prepare_boot_args</code></h3>
+<p>…</p>
+
+<p><img src="/assets/Screen Shot 2016-02-28 at 2.21.46 PM.png" alt="dmsg" /></p>
+
+<h3 id="memstartdownload"><code class="highlighter-rouge">mem_start_download</code></h3>
+<p>Triggered by <code class="highlighter-rouge">IOCTL_MODEM_DL_START</code> which grabs the <code class="highlighter-rouge">BOOT</code> section of <code class="highlighter-rouge">modem.bin</code> and sends it to the CP to start the boot code. The code appears to come from <code class="highlighter-rouge">link_device_bootdump.c</code> in the Android kernel.</p>
+
+<p><code class="highlighter-rouge">magic == 0x424F4F54</code> or <code class="highlighter-rouge">BOOT</code></p>
+
+<p><img src="/assets/Screen Shot 2016-02-29 at 4.38.10 PM.png" alt="" /></p>
+
+<h3 id="stddlsendbin"><code class="highlighter-rouge">std_dl_send_bin</code></h3>
+
+<p>Sends parsed <code class="highlighter-rouge">modem.bin</code> to CP RAM via <code class="highlighter-rouge">BOOT</code> code. I’m thinking the <code class="highlighter-rouge">CMD=</code> are private IOCTL command IDs.</p>
+
+<h4 id="stage-1-0x200-bytes-header">Stage 1: <code class="highlighter-rouge">0x200</code> bytes header</h4>
+<p><img src="/assets/Screen Shot 2016-02-29 at 11.48.04 PM.png" alt="" /></p>
+
+<h4 id="stage-2-0x2686040-bytes-main">Stage 2: <code class="highlighter-rouge">0x2686040</code> bytes <code class="highlighter-rouge">MAIN</code></h4>
+<p><img src="/assets/Screen Shot 2016-02-29 at 11.48.20 PM.png" alt="" /></p>
+
+<h4 id="checks-crc-for-main">Checks <code class="highlighter-rouge">CRC</code> for <code class="highlighter-rouge">MAIN</code></h4>
+<p>I’m guessing it sends the <code class="highlighter-rouge">MAIN</code> <code class="highlighter-rouge">CRC</code> to the <code class="highlighter-rouge">BOOT</code> code to verify</p>
+
+<p><img src="/assets/Screen Shot 2016-02-11 at 8.40.31 PM.png" alt="" /></p>
+
+<h4 id="stage-3-0x100000-bytes-of-nvram">Stage 3: <code class="highlighter-rouge">0x100000</code> bytes of <code class="highlighter-rouge">NVRAM</code></h4>
+<p><img src="/assets/Screen Shot 2016-03-01 at 12.02.43 AM.png" alt="" /></p>
+
+<h3 id="checkfactorylogpath"><code class="highlighter-rouge">check_factory_log_path</code></h3>
+<p>Set to <code class="highlighter-rouge">/sdcard/log</code>/ annoyingly the <code class="highlighter-rouge">SM-G920F</code> does not have an SD CARD slot so uses a shitty Virtual SD daemon that does not appear to work correctly because I can not get anything saved into the directory. Will work on a way to set this, should be fairly simple.</p>
+
+<h3 id="stdudlreqresp"><code class="highlighter-rouge">std_udl_req_resp</code></h3>
+<p>I’m not sure why <code class="highlighter-rouge">cbd</code> calls these functions, but called before <code class="highlighter-rouge">std_dl_send_bin</code></p>
+
+<h1 id="service-mode-functions">Service Mode Functions</h1>
+
+<p>There are many service mode functions that Samsung kindly provides that will help during reversing.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code># Enable CP Debugging
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://66336
+
+&lt;device resets&gt;
+
+# Enable CP RAMDUMP
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://9090
+
+&lt;device resets&gt;
+
+# Cause CP RAMDUMP
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://CP_RAMDUMP
+
+# SysDump, Copy to SD Card
+am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://9900
+</code></pre>
+</div>
+
+<p>Working on writing up my notes on reversing <code class="highlighter-rouge">CP Boot Daemon</code> and <code class="highlighter-rouge">BOOT</code>, hopefully will post soon. I still need to figure out how to organize this damn thing. Hopefully this helps those interested jump-start their research, and feel free to reach out via <a href="http://twitter.com/theqlabs">Twitter</a>.</p>
+
+  </div>
+  
+</div>
+
+<div class="pagination">
+  
+    <span class="pagination-item older">Older</span>
+  
+  
+    <span class="pagination-item newer">Newer</span>
+  
+</div>
+    </div>
+
+  </body>
+</html>
