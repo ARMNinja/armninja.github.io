@@ -1,3 +1,8 @@
+---
+layout: post
+title: Decoding Syscalls in ARM64
+---
+
 Eventually as you are reverse-engineering an `ARM` binary you will come across a function that looks like the following:
 
 ![]({{ site.baseurl }}assets/Screen Shot 2016-03-06 at 10.26.42 PM.png)
