@@ -1,0 +1,174 @@
+<p>Eventually as you are reverse-engineering an <code class="highlighter-rouge">ARM</code> binary you will come across a function that looks like the following:</p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.26.42 PM.png" alt="" /></p>
+
+<p><em>Even if you understand what this code is doing (as I suspect you may) read on, as this post intends to bring to light several security models specific to the <code class="highlighter-rouge">ARMv8-a</code> architecture.</em></p>
+
+<p>To understand what this code is doing, you need to understand a few concepts first. Since this is an <code class="highlighter-rouge">ARM</code> specific blog, this is what we will focus on. Specifically in the context of the <code class="highlighter-rouge">ARMv8-a</code> architecture. An extremely helpful overview of this architecture can be found here: <a href="">https://quequero.org/2014/04/introduction-to-arm-architecture/</a> - I suggest you read it before continuing.</p>
+
+<h3 id="exception-levels">Exception Levels</h3>
+
+<p>The most important concept is rather new, these are the <strong>Exception Levels</strong> <code class="highlighter-rouge">ARMv8-a</code> uses for privilege separation (such as <code class="highlighter-rouge">rings</code> in the <code class="highlighter-rouge">Intel</code> architecture) there are 4 levels, notably:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Exception Level</th>
+      <th>Description</th>
+      <th>Usage*</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>EL0</strong></td>
+      <td>Unprivileged</td>
+      <td>Applications are executed here</td>
+      <td>Required</td>
+    </tr>
+    <tr>
+      <td><strong>EL1</strong></td>
+      <td>Privileged</td>
+      <td>Linux (or other OS) Kernel</td>
+      <td>Required</td>
+    </tr>
+    <tr>
+      <td><strong>EL2</strong></td>
+      <td>Hypervisor</td>
+      <td><em>Virtualization</em></td>
+      <td><em>Optional</em></td>
+    </tr>
+    <tr>
+      <td><strong>EL3</strong></td>
+      <td>Secure Monitor</td>
+      <td><em>Security States</em></td>
+      <td><em>Optional</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>*: <code class="highlighter-rouge">aarch64</code> does not dictate <strong>how</strong> software can use the exception levels, these are simply a common usage model.</p>
+
+<p>Now, as you can imagine, applications running in <strong>EL0</strong> may need to access or modify the system in some way. The Linux kernel provides a <del>safe</del> portable way to access these system-level functions. This Application Programming Interface or <code class="highlighter-rouge">API</code> between the <em>unprivileged</em> <strong>EL0</strong> and the <em>privileged</em> <strong>EL1</strong> execution levels are called <strong>system calls</strong> or <code class="highlighter-rouge">syscalls</code>.</p>
+
+<p>The <code class="highlighter-rouge">ARMv8-a</code> architecture has strict rules about how to leverage <code class="highlighter-rouge">syscalls</code>, as you can imagine abuse of this <code class="highlighter-rouge">API</code> is commmon and could lead to an <em>unprivileged</em> application modifying the system beyond what it should be allowed to. This technique has been used countless times to gain <code class="highlighter-rouge">root</code> on a device or escalate privileges of a user. One of the biggest issues with mobile devices is there is not much quality control for software that interfaces with the kernel, things like device drivers get abused far too often.</p>
+
+<p>Before we get into exceptions, it should be noted that <code class="highlighter-rouge">ARMv8-a</code> has a (harrowingly complicated) <strong>Security Model</strong>, whose general principles are as follows. If <strong>EL3</strong> is implemented in the system there are two <code class="highlighter-rouge">security states</code> <strong>Secure</strong> and <strong>Non-Secure</strong> each with their own physical memory address space. If <strong>EL3</strong> is not implemented, <strong>AND</strong> does not include <strong>EL2</strong> then it’s <code class="highlighter-rouge">IMPLEMENTATION DEFINED</code>. If <strong>EL2</strong> is present then it is Non-Secure state. Changing states occurs in the same fashion as the exceptions described below.</p>
+
+<h3 id="exceptions">Exceptions</h3>
+
+<p><code class="highlighter-rouge">ARMv8-a</code> can operate in two <code class="highlighter-rouge">execution states</code> <code class="highlighter-rouge">Aarch64</code> and <code class="highlighter-rouge">Aarch32</code> (compatible with <code class="highlighter-rouge">ARMv7-a</code>). It is possible to move between these two states using what the architecture defines as <code class="highlighter-rouge">interprocessing</code> though it is not useful for this exercise.</p>
+
+<p>In <code class="highlighter-rouge">Aarch64</code> state, you can change exception levels only by taking an exception, or returning from one. Perhaps the best way to explain it is with pseudo-code:</p>
+
+<h4 id="bit">64-bit:</h4>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>if state == aarch64 &amp;&amp; take_exception {
+	 target_exception_level = exception_level or exception_level+1
+}
+
+if state == aarch64 &amp;&amp; return_from_exception {
+	target_exception_level = exception_level or exception_level-1
+}
+</code></pre>
+</div>
+
+<p>There are a few types of exceptions <code class="highlighter-rouge">ARMv8-a</code> allows that will interrupt the processor and change the control flow of the program. These are:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">SVC</code> Supervisor Call attempts to access <strong>EL1</strong> from <strong>EL0</strong>.</li>
+  <li><code class="highlighter-rouge">HVC</code> Hypervisor Call attempts to access <strong>EL2</strong></li>
+  <li><code class="highlighter-rouge">SMC</code> Secure Monitor Call attempts to access <strong>EL3</strong></li>
+  <li><code class="highlighter-rouge">HLT</code> Halting Software Breakpoint Instruction</li>
+  <li><code class="highlighter-rouge">BRK</code> Software Breakpoint Instruction</li>
+</ul>
+
+<p>The <code class="highlighter-rouge">SVC</code> instruction is the most common, and the one we are dealing with in the following example. This instruction causes a Supervisor Call exception, which provides this <em>unprivileged</em> program the ability to make a system call to the <em>privileged</em> operating system. When <code class="highlighter-rouge">SVC</code> is executed, the <code class="highlighter-rouge">target_exception_level</code> becomes <code class="highlighter-rouge">EL1</code> from <code class="highlighter-rouge">EL0</code>.</p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.26.42 PM.png" alt="" /></p>
+
+<p>Let’s walk-through this function to see what’s going on:</p>
+
+<p><strong><code class="highlighter-rouge">MOV		X8, #0x40</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Moves the immediate 0x40 into the X8 register.
+
+Each syscall has a key value, the immediate value 0x40 corresponds to 
+sys_getppid. See: http://syscalls.kernelgrok.com/
+
+The 64-bit X8 register is also important, as it is a good way 
+to identify what syscall will be called by SVC. In ARMv7-a the 
+R7 register was used, which is easy to remember: v7 uses R7, v8 
+uses X8.
+</code></pre>
+</div>
+
+<p><strong><code class="highlighter-rouge">SVC		0</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Generates supervisor call exception, targeting EL1
+
+The call looks like this: 
+AArch64.TakeException(EL1, exception, preferred_exception_return, vect_offset);
+</code></pre>
+</div>
+
+<p>Now is a good time to break and talk about what <code class="highlighter-rouge">vect_offset</code> is:</p>
+
+<hr />
+
+<h4 id="exception-vector-tables">Exception Vector Tables</h4>
+
+<p>From <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.den0024a/CHDEEDDC.html">ARM Infocenter</a>:</p>
+
+<blockquote>
+  <p>When an exception occurs, the processor must execute handler code which corresponds to the exception. The location in memory where the handler is stored is called the exception vector. In the ARM architecture, exception vectors are stored in a table, called the <strong>exception vector table</strong>. Each Exception level has its own vector table, that is, there is one for each of EL3, EL2 and EL1. The <strong>table contains instructions to be executed</strong>, rather than a set of addresses. Vectors for individual exceptions are located at fixed offsets from the beginning of the table. The virtual address of each table base is set by the Vector Based Address Registers <code class="highlighter-rouge">VBAR_EL3</code>, <code class="highlighter-rouge">VBAR_EL2</code> and <code class="highlighter-rouge">VBAR_EL1</code>.</p>
+</blockquote>
+
+<p>This means that after <code class="highlighter-rouge">SVC 0</code> is called, <code class="highlighter-rouge">AArch64.TakeException()</code> executes using <code class="highlighter-rouge">VBAR_EL1</code> + <code class="highlighter-rouge">vect_offset</code> <code class="highlighter-rouge">0x280</code> to retrieve the exception handler instructions to carry out the exception - <em>see Table 10.2 in the infocenter reference for information about calculating offsets</em>.</p>
+
+<p>Accessing <code class="highlighter-rouge">VBAR_EL1</code> is done through the <code class="highlighter-rouge">MRS</code> instruction and looks like this for our example:</p>
+
+<p><img src="/assets/Screen Shot 2016-03-08 at 12.21.15 AM.png" alt="" /></p>
+
+<hr />
+
+<p><strong><code class="highlighter-rouge">CMN		X0, #1, LSL#12</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Checks SVC return for negative values (failures)
+</code></pre>
+</div>
+
+<p><strong><code class="highlighter-rouge">CINV	X0, X0, HI</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>This makes no sense to me, if both results of the conditions 
+are X0 WTF is the point? 
+
+Anyone who would like to help me make sense of the use of this 
+is welcome.
+</code></pre>
+</div>
+
+<p><strong><code class="highlighter-rouge">B.HI	loc_42B4B8</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>This branch actually takes us to the function that reads VBAR_EL1
+</code></pre>
+</div>
+
+<p><img src="/assets/Screen Shot 2016-03-08 at 12.25.02 AM.png" alt="" /></p>
+
+<p><strong><code class="highlighter-rouge">RET</code></strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Branches to the address stored in the Link Register (LR)
+</code></pre>
+</div>
+
+<p>Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the <code class="highlighter-rouge">sys_getppid</code> handler!</p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.33.07 PM.png" alt="" /></p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.29.19 PM.png" alt="" /></p>
+
+<p>I left some details out about the above process because this was meant as an intro. Some of the topics I did not discuss are <code class="highlighter-rouge">Exception Syndrome Registers</code>, <code class="highlighter-rouge">Exception Link Registers</code>, and <code class="highlighter-rouge">PSTATE</code>.</p>
+
+<p><strong>NOTE: To learn more about exceptions in <code class="highlighter-rouge">ARMv8-a</code> check out <code class="highlighter-rouge">Chapter D1</code> in the <code class="highlighter-rouge">Aarch64 Reference Manual</code></strong></p>
+

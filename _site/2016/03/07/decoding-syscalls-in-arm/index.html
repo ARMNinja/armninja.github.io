@@ -1,0 +1,105 @@
+<p>Eventually as you are reverse-engineering an <code class="highlighter-rouge">ARM</code> binary you will come across a function that looks like the following:</p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.26.42 PM.png" alt="" /></p>
+
+<p>To understand what this code is doing, you need to understand a few concepts first. Since this is an <code class="highlighter-rouge">ARM</code> specific blog, this is what we will focus on. Specifically in the context of the <code class="highlighter-rouge">ARMv8-a</code> architecture. An extremely helpful overview of this architecture can be found here: <a href="">https://quequero.org/2014/04/introduction-to-arm-architecture/</a> - I suggest you read it before continuing.</p>
+
+<h3 id="exception-levels">Exception Levels</h3>
+
+<p>The most important concept is rather new, these are the <strong>Exception Levels</strong> <code class="highlighter-rouge">ARMv8-a</code> uses for privilege separation (such as <code class="highlighter-rouge">rings</code> in the <code class="highlighter-rouge">Intel</code> architecture) there are 4 levels, notably:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Exception Level</th>
+      <th>Description</th>
+      <th>Usage*</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>EL0</strong></td>
+      <td>Unprivileged</td>
+      <td>Applications are executed here</td>
+      <td>Required</td>
+    </tr>
+    <tr>
+      <td><strong>EL1</strong></td>
+      <td>Privileged</td>
+      <td>Linux (or other OS) Kernel</td>
+      <td>Required</td>
+    </tr>
+    <tr>
+      <td><strong>EL2</strong></td>
+      <td>Hypervisor</td>
+      <td><em>Virtualization</em></td>
+      <td><em>Optional</em></td>
+    </tr>
+    <tr>
+      <td><strong>EL3</strong></td>
+      <td>Secure Monitor</td>
+      <td><em>Security States</em></td>
+      <td><em>Optional</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>*: <code class="highlighter-rouge">aarch64</code> does not dictate <strong>how</strong> software can use the exception levels, these are simply a common usage model.</p>
+
+<p>Now, as you can imagine, applications running in <strong>EL0</strong> may need to access or modify the system in some way. In order to provide an interface for this to happen the Linux kernel makes available a <del>safe</del> portable way to access these system-level functions. This Application Programming Interface or <code class="highlighter-rouge">API</code> between the <em>unprivileged</em> <strong>EL0</strong> and the <em>privileged</em> <strong>EL1</strong> execution levels are called <strong>system calls</strong> or <code class="highlighter-rouge">syscalls</code>.</p>
+
+<p>The <code class="highlighter-rouge">ARMv8-a</code> architecture has strict rules about how to leverage <code class="highlighter-rouge">syscalls</code>, as you can imagine abuse of this <code class="highlighter-rouge">API</code> is commmon and could lead to an <em>unprivileged</em> application modifying the system beyond what it should be allowed to. This technique has been used countless times to gain <code class="highlighter-rouge">root</code> on a device or escalate privileges of a user. One of the biggest issues with mobile devices is there is not much quality control for software that interfaces with the kernel, things like device drivers get abused far too often.</p>
+
+<p>Before we get into exceptions, it should be noted that <code class="highlighter-rouge">ARMv8-a</code> has a (harrowingly complicated) <strong>Security Model</strong>, whose general principles are as follows. If <strong>EL3</strong> is implemented in the system there are two <code class="highlighter-rouge">security states</code> <strong>Secure</strong> and <strong>Non-Secure</strong> each with their own physical memory address space. If <strong>EL3</strong> is not implemented, <strong>AND</strong> does not include <strong>EL2</strong> then it’s <code class="highlighter-rouge">IMPLEMENTATION DEFINED</code>. If <strong>EL2</strong> is present then it is Non-Secure state. Changing states occurs in the same fashion as the exceptions described below.</p>
+
+<h3 id="exceptions">Exceptions</h3>
+
+<p><code class="highlighter-rouge">ARMv8-a</code> can operate in two <code class="highlighter-rouge">execution states</code> <code class="highlighter-rouge">Aarch64</code> and <code class="highlighter-rouge">Aarch32</code> (compatible with <code class="highlighter-rouge">ARMv7-a</code>). Not to confuse you further, but interestingly enough you can move between these two states in what <code class="highlighter-rouge">ARMv8-a</code> calls <code class="highlighter-rouge">interprocessing</code>.</p>
+
+<p>In <code class="highlighter-rouge">Aarch64</code> state, you can change exception levels only by taking an exception, or returning from one. Perhaps the best way to explain it is with pseudo-code:</p>
+
+<h4 id="bit">64-bit:</h4>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>if state == aarch64 &amp;&amp; take_exception {
+	 target_exception_level = exception_level or exception_level+1
+}
+
+if state == aarch64 &amp;&amp; return_from_exception {
+	target_exception_level = exception_level or exception_level-1
+}
+</code></pre>
+</div>
+
+<h4 id="bit-1">32-bit:</h4>
+<div class="highlighter-rouge"><pre class="highlight"><code>if state == aarch32 &amp;&amp; to_exception {
+</code></pre>
+</div>
+
+<p>There are a few types of exceptions <code class="highlighter-rouge">ARMv8-a</code> allows that will interrupt the processor and change the control flow of the program. These are:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">SVC</code> Supervisor Call attempts to access <strong>EL1</strong> from <strong>EL0</strong>.</li>
+  <li><code class="highlighter-rouge">HVC</code> Hypervisor Call attempts to access <strong>EL2</strong></li>
+  <li><code class="highlighter-rouge">SMC</code> Secure Monitor Call attempts to access <strong>EL3</strong></li>
+</ul>
+
+<h3 id="exception-handlers">Exception Handlers</h3>
+
+<p>Now that we understand what should happen, let’s take a look at that same function above:
+<img src="/assets/Screen Shot 2016-03-06 at 10.26.42 PM.png" alt="" /></p>
+
+<p>The function starts with a <code class="highlighter-rouge">MOV X8, &lt;immediate&gt;</code> which places the value <code class="highlighter-rouge">#0x40</code> into the 64-bit register <code class="highlighter-rouge">X8</code> to prepare for the call. The next instruction is the <code class="highlighter-rouge">SVC</code> or <code class="highlighter-rouge">Supervisor Call</code> instruction which changes the mode of the ARM CPU and causes a type of interrupt to occur called a <code class="highlighter-rouge">?</code> which gets handled by a piece of code known as an Interupt or Exception Handler. These handlers are very important, and should be well-understood by any ARM ninja.</p>
+
+<p><code class="highlighter-rouge">TODO</code>: Writeup section about how vector tables and exception handlers work here. Also continue to document what the rest of the function does.</p>
+
+<p><strong>NOTE: To learn more about exceptions in <code class="highlighter-rouge">ARMv8-a</code> check out <code class="highlighter-rouge">Chapter D1</code> in the <code class="highlighter-rouge">Aarch64 Reference Manual</code></strong></p>
+
+<p>Using the syscall <immediate> value above `0x40` we can use a lookup table or `grep` the kernel to find what system call it corresponds to. The fastest way is to use something like: [http://syscalls.kernelgrok.com/]() - which gives you `sys_getppid` for that value from `kernel/timer.c:1348`</immediate></p>
+
+<p>If you’re using IDA, you can now <code class="highlighter-rouge">Edit function ...</code> to change <code class="highlighter-rouge">sub_434250</code> to <code class="highlighter-rouge">sys_getppid</code> which will propogate through the IDA database and make it easy to recognize when a function is calling the <code class="highlighter-rouge">sys_getppid</code> system call.</p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.33.07 PM.png" alt="" /></p>
+
+<p><img src="/assets/Screen Shot 2016-03-06 at 10.29.19 PM.png" alt="" /></p>
+
