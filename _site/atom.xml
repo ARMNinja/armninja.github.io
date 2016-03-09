@@ -4,7 +4,7 @@
  <title>ARM Ninja</title>
  <link href="http://arm.ninja/atom.xml" rel="self"/>
  <link href="http://arm.ninja/"/>
- <updated>2016-03-08T00:39:20-08:00</updated>
+ <updated>2016-03-09T13:21:34-08:00</updated>
  <id>http://arm.ninja</id>
  <author>
    <name>Andrew Righter</name>
@@ -13,7 +13,87 @@
 
  
  <entry>
-   <title>Decoding Syscalls In Arm64</title>
+   <title>Recursing Basic Blocks like a Boss</title>
+   <link href="http://arm.ninja/2016/03/08/recursing-bb-like-a-boss/"/>
+   <updated>2016-03-08T00:00:00-08:00</updated>
+   <id>http://arm.ninja/2016/03/08/recursing-bb-like-a-boss</id>
+   <content type="html">&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;TODO: re-write this, sounds like shit&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;As ninjas we value time, and the faster we are able to do something the better. Because of this I try to find tools to expedite my work, and so I have started messing around with &lt;a href=&quot;https://binary.ninja&quot;&gt;Binary Ninja&lt;/a&gt; from the cool dudes over at &lt;a href=&quot;https://vector35.com/&quot;&gt;Vector 35&lt;/a&gt; whom I love dearly for the incredible contributions they have made to CTF over the years, my favorite being &lt;a href=&quot;https://github.com/ctfs/write-ups-2015/blob/master/csaw-ctf-2015/reverse/hacking-time-200/HackingTime_03e852ace386388eb88c39a02f88c773.nes&quot;&gt;Hacking Time&lt;/a&gt; and &lt;a href=&quot;https://github.com/Vector35/PwnAdventureZ&quot;&gt;PwnAdventureZ&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;While the UI is super sexy and clean, this post is focused on the Python &lt;code class=&quot;highlighter-rouge&quot;&gt;API&lt;/code&gt; to see how quickly I can build a tool to &lt;a href=&quot;http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/&quot;&gt;Decode ARM64 syscalls&lt;/a&gt; based on my last post. Thanks to &lt;a href=&quot;twitter.com/psifertex&quot;&gt;Jordan&lt;/a&gt; for inviting me to the &lt;code class=&quot;highlighter-rouge&quot;&gt;BETA&lt;/code&gt; and thanks to Peter who spent a couple hours solving my super novice issues and made this post possible.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;note: binary ninja has been lovingly abbrieviated &lt;code class=&quot;highlighter-rouge&quot;&gt;binja&lt;/code&gt;, which i love, and will refer to it as such through the post&lt;/em&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;setting-up&quot;&gt;Setting up&lt;/h4&gt;
+
+&lt;p&gt;Typical of my luck, I happened to run into every known and unknown issue while getting set up. Luckily the V35 guys were super helpful getting it straightened out but will document here in case you run into these problems. After getting my copy of the software, (an App Bundle for OS X) I ran into a problem with &lt;code class=&quot;highlighter-rouge&quot;&gt;homebrew&lt;/code&gt; version of Python 2.7 causing &lt;a href=&quot;https://asciinema.org/a/cjnff76u305mn9ceixtimz4ns&quot;&gt;this issue&lt;/a&gt; which was later documented &lt;a href=&quot;https://github.com/Vector35/binaryninja-docs/issues/186&quot;&gt;here&lt;/a&gt; with a temporary solution of simply using the native OS X version of Python:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;PYTHONPATH=$PYTHONPATH:/Applications/Binary\ Ninja.app/Contents/Resources/python python
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;After this I ran into some errors resulting from a phantom &lt;code class=&quot;highlighter-rouge&quot;&gt;dylib&lt;/code&gt; on my system causing version mismatches and preventing me from using the &lt;code class=&quot;highlighter-rouge&quot;&gt;Mach-O&lt;/code&gt; support. You’re unlikely to run into this, however it is convient to ensure that your &lt;code class=&quot;highlighter-rouge&quot;&gt;UI&lt;/code&gt; version matches your &lt;code class=&quot;highlighter-rouge&quot;&gt;API&lt;/code&gt; version by running:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;python -c &quot;import binaryninja; print binaryninja.core_version&quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;throwing-down&quot;&gt;Throwing Down&lt;/h4&gt;
+
+&lt;p&gt;I was given a block of sample code to leverage the Python &lt;code class=&quot;highlighter-rouge&quot;&gt;API&lt;/code&gt;:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;from binaryninja import *
+bv = BinaryViewType[&#39;Mach-O&#39;].open(&quot;stack1&quot;)
+bv.update_analysis()
+time.sleep(5)
+for func in bv.functions:
+   print func.symbol.name
+   for block in func.basic_blocks:
+      print hex(block.start), hex(block.end)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;which results in the following for &lt;a href=&quot;https://github.com/deadbits/InsecureProgramming&quot;&gt;Gera’s&lt;/a&gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;stack1&lt;/code&gt; binary:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;_main
+0x100000ea0L 0x100000ef3L
+0x100000f04L 0x100000f1eL
+0x100000ef3L 0x100000f04L
+0x100000f2aL 0x100000f36L
+0x100000f1eL 0x100000f2aL
+___stack_chk_fail
+0x100000f30L 0x100000f36L
+_gets
+0x100000f36L 0x100000f3cL
+_printf
+0x100000f3cL 0x100000f42L
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It should be noted that currently in &lt;code class=&quot;highlighter-rouge&quot;&gt;BETA&lt;/code&gt; the &lt;code class=&quot;highlighter-rouge&quot;&gt;time.sleep(5)&lt;/code&gt; function is required due the lack of a callback function, so there is no way to know when your analysis is complete. While this makes things blazingly fast for larger binaries, adjusting &lt;code class=&quot;highlighter-rouge&quot;&gt;time.sleep(5)&lt;/code&gt; is annoying and I was warned that this is being solved by implementing callback functionality.&lt;/p&gt;
+
+&lt;p&gt;Despite this we see that &lt;code class=&quot;highlighter-rouge&quot;&gt;binja&lt;/code&gt; performs as expected, it finds the symbols: &lt;code class=&quot;highlighter-rouge&quot;&gt;_main&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;__stack_chk_fail&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;_gets&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;_printf&lt;/code&gt; and displays the start and ending addresses for each basic block associated with each symbol.&lt;/p&gt;
+
+&lt;h4 id=&quot;binja-plugin-to-decode-arm64-syscalls&quot;&gt;Binja plugin to decode ARM64 syscalls&lt;/h4&gt;
+
+&lt;p&gt;Now that we have a basic example working, we are ready to attempt to write a plug-in that decodes ARM64 syscalls, a crude algorithm for doing this is:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Search for supervisor call exceptions in &lt;code class=&quot;highlighter-rouge&quot;&gt;ARM64&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Check the &lt;code class=&quot;highlighter-rouge&quot;&gt;immediate&lt;/code&gt; value being moved to &lt;code class=&quot;highlighter-rouge&quot;&gt;X8&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Lookup the value to identify the &lt;code class=&quot;highlighter-rouge&quot;&gt;syscall&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;TODO: To do any type of lookup, i&#39;ll need a list of ARM64 syscalls in code&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;To do this in &lt;code class=&quot;highlighter-rouge&quot;&gt;binja&lt;/code&gt; we start similar to the above example, by recursing through each &lt;code class=&quot;highlighter-rouge&quot;&gt;basic block&lt;/code&gt; but instead of just printing the addresses, we look for the instructions &lt;code class=&quot;highlighter-rouge&quot;&gt;SVC 0&lt;/code&gt; or bytecode: &lt;code class=&quot;highlighter-rouge&quot;&gt;00 11 22 33&lt;/code&gt;.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Decoding Syscalls in ARM64</title>
    <link href="http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/"/>
    <updated>2016-03-07T00:00:00-08:00</updated>
    <id>http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64</id>
@@ -191,43 +271,6 @@ is welcome.
 
 &lt;p&gt;&lt;strong&gt;NOTE: To learn more about exceptions in &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; check out &lt;code class=&quot;highlighter-rouge&quot;&gt;Chapter D1&lt;/code&gt; in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Aarch64 Reference Manual&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
 
-</content>
- </entry>
- 
- <entry>
-   <title>CP Boot Daemon</title>
-   <link href="http://arm.ninja/2016/03/06/CP-Boot-Daemon/"/>
-   <updated>2016-03-06T00:00:00-08:00</updated>
-   <id>http://arm.ninja/2016/03/06/CP-Boot-Daemon</id>
-   <content type="html">&lt;p&gt;Notes regarding the operation of &lt;code class=&quot;highlighter-rouge&quot;&gt;CP Boot Daemon&lt;/code&gt; located at: &lt;code class=&quot;highlighter-rouge&quot;&gt;/sbin/cbd&lt;/code&gt;. The &lt;em&gt;init&lt;/em&gt; on my &lt;code class=&quot;highlighter-rouge&quot;&gt;SM-G920F&lt;/code&gt; looks like:
-&lt;img src=&quot;/assets/Screen Shot 2016-02-09 at 10.53.39 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;TODO: add screen shot of cbd help output&lt;/strong&gt;&lt;/p&gt;
-
-&lt;p&gt;The function of &lt;code class=&quot;highlighter-rouge&quot;&gt;cbd&lt;/code&gt; is to perform early boot operations for the Cell Processor (CP) including parsing &lt;code class=&quot;highlighter-rouge&quot;&gt;modem.bin&lt;/code&gt;, sending &lt;code class=&quot;highlighter-rouge&quot;&gt;BOOT&lt;/code&gt; to the CP, validating &lt;code class=&quot;highlighter-rouge&quot;&gt;MAIN&lt;/code&gt; CRC checksum, and numerous other operations as detailed in the Functions and IOCTLs table below.&lt;/p&gt;
-
-&lt;h1 id=&quot;functions-and-ioctls&quot;&gt;Functions and IOCTLs&lt;/h1&gt;
-
-&lt;p&gt;Fill this table in from cbd.idb database notes:&lt;/p&gt;
-
-&lt;table&gt;
-  &lt;thead&gt;
-    &lt;tr&gt;
-      &lt;th&gt;Name&lt;/th&gt;
-      &lt;th&gt;IOCTL&lt;/th&gt;
-    &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-    &lt;tr&gt;
-      &lt;td&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;start_shannon_boot&lt;/code&gt;&lt;/td&gt;
-      &lt;td&gt;&amp;lt;…&amp;gt;&lt;/td&gt;
-    &lt;/tr&gt;
-    &lt;tr&gt;
-      &lt;td&gt;…&lt;/td&gt;
-      &lt;td&gt;…&lt;/td&gt;
-    &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
 </content>
  </entry>
  

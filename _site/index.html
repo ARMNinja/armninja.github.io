@@ -76,8 +76,92 @@
   
   <div class="post">
     <h1 class="post-title">
+      <a href="/2016/03/08/recursing-bb-like-a-boss/">
+        Recursing Basic Blocks like a Boss
+      </a>
+    </h1>
+
+    <span class="post-date">08 Mar 2016</span>
+
+    <p><code class="highlighter-rouge">TODO: re-write this, sounds like shit</code></p>
+
+<p>As ninjas we value time, and the faster we are able to do something the better. Because of this I try to find tools to expedite my work, and so I have started messing around with <a href="https://binary.ninja">Binary Ninja</a> from the cool dudes over at <a href="https://vector35.com/">Vector 35</a> whom I love dearly for the incredible contributions they have made to CTF over the years, my favorite being <a href="https://github.com/ctfs/write-ups-2015/blob/master/csaw-ctf-2015/reverse/hacking-time-200/HackingTime_03e852ace386388eb88c39a02f88c773.nes">Hacking Time</a> and <a href="https://github.com/Vector35/PwnAdventureZ">PwnAdventureZ</a>.</p>
+
+<p>While the UI is super sexy and clean, this post is focused on the Python <code class="highlighter-rouge">API</code> to see how quickly I can build a tool to <a href="http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/">Decode ARM64 syscalls</a> based on my last post. Thanks to <a href="twitter.com/psifertex">Jordan</a> for inviting me to the <code class="highlighter-rouge">BETA</code> and thanks to Peter who spent a couple hours solving my super novice issues and made this post possible.</p>
+
+<p><em>note: binary ninja has been lovingly abbrieviated <code class="highlighter-rouge">binja</code>, which i love, and will refer to it as such through the post</em></p>
+
+<h4 id="setting-up">Setting up</h4>
+
+<p>Typical of my luck, I happened to run into every known and unknown issue while getting set up. Luckily the V35 guys were super helpful getting it straightened out but will document here in case you run into these problems. After getting my copy of the software, (an App Bundle for OS X) I ran into a problem with <code class="highlighter-rouge">homebrew</code> version of Python 2.7 causing <a href="https://asciinema.org/a/cjnff76u305mn9ceixtimz4ns">this issue</a> which was later documented <a href="https://github.com/Vector35/binaryninja-docs/issues/186">here</a> with a temporary solution of simply using the native OS X version of Python:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>PYTHONPATH=$PYTHONPATH:/Applications/Binary\ Ninja.app/Contents/Resources/python python
+</code></pre>
+</div>
+
+<p>After this I ran into some errors resulting from a phantom <code class="highlighter-rouge">dylib</code> on my system causing version mismatches and preventing me from using the <code class="highlighter-rouge">Mach-O</code> support. You’re unlikely to run into this, however it is convient to ensure that your <code class="highlighter-rouge">UI</code> version matches your <code class="highlighter-rouge">API</code> version by running:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>python -c "import binaryninja; print binaryninja.core_version"
+</code></pre>
+</div>
+
+<h4 id="throwing-down">Throwing Down</h4>
+
+<p>I was given a block of sample code to leverage the Python <code class="highlighter-rouge">API</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>from binaryninja import *
+bv = BinaryViewType['Mach-O'].open("stack1")
+bv.update_analysis()
+time.sleep(5)
+for func in bv.functions:
+   print func.symbol.name
+   for block in func.basic_blocks:
+      print hex(block.start), hex(block.end)
+</code></pre>
+</div>
+
+<p>which results in the following for <a href="https://github.com/deadbits/InsecureProgramming">Gera’s</a> <code class="highlighter-rouge">stack1</code> binary:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>_main
+0x100000ea0L 0x100000ef3L
+0x100000f04L 0x100000f1eL
+0x100000ef3L 0x100000f04L
+0x100000f2aL 0x100000f36L
+0x100000f1eL 0x100000f2aL
+___stack_chk_fail
+0x100000f30L 0x100000f36L
+_gets
+0x100000f36L 0x100000f3cL
+_printf
+0x100000f3cL 0x100000f42L
+</code></pre>
+</div>
+
+<p>It should be noted that currently in <code class="highlighter-rouge">BETA</code> the <code class="highlighter-rouge">time.sleep(5)</code> function is required due the lack of a callback function, so there is no way to know when your analysis is complete. While this makes things blazingly fast for larger binaries, adjusting <code class="highlighter-rouge">time.sleep(5)</code> is annoying and I was warned that this is being solved by implementing callback functionality.</p>
+
+<p>Despite this we see that <code class="highlighter-rouge">binja</code> performs as expected, it finds the symbols: <code class="highlighter-rouge">_main</code>, <code class="highlighter-rouge">__stack_chk_fail</code>, <code class="highlighter-rouge">_gets</code>, <code class="highlighter-rouge">_printf</code> and displays the start and ending addresses for each basic block associated with each symbol.</p>
+
+<h4 id="binja-plugin-to-decode-arm64-syscalls">Binja plugin to decode ARM64 syscalls</h4>
+
+<p>Now that we have a basic example working, we are ready to attempt to write a plug-in that decodes ARM64 syscalls, a crude algorithm for doing this is:</p>
+
+<ul>
+  <li>Search for supervisor call exceptions in <code class="highlighter-rouge">ARM64</code></li>
+  <li>Check the <code class="highlighter-rouge">immediate</code> value being moved to <code class="highlighter-rouge">X8</code></li>
+  <li>Lookup the value to identify the <code class="highlighter-rouge">syscall</code></li>
+</ul>
+
+<p><code class="highlighter-rouge">TODO: To do any type of lookup, i'll need a list of ARM64 syscalls in code</code></p>
+
+<p>To do this in <code class="highlighter-rouge">binja</code> we start similar to the above example, by recursing through each <code class="highlighter-rouge">basic block</code> but instead of just printing the addresses, we look for the instructions <code class="highlighter-rouge">SVC 0</code> or bytecode: <code class="highlighter-rouge">00 11 22 33</code>.</p>
+
+
+  </div>
+  
+  <div class="post">
+    <h1 class="post-title">
       <a href="/2016/03/07/decoding-syscalls-in-arm64/">
-        Decoding Syscalls In Arm64
+        Decoding Syscalls in ARM64
       </a>
     </h1>
 
@@ -257,47 +341,6 @@ is welcome.
 
 <p><strong>NOTE: To learn more about exceptions in <code class="highlighter-rouge">ARMv8-a</code> check out <code class="highlighter-rouge">Chapter D1</code> in the <code class="highlighter-rouge">Aarch64 Reference Manual</code></strong></p>
 
-
-  </div>
-  
-  <div class="post">
-    <h1 class="post-title">
-      <a href="/2016/03/06/CP-Boot-Daemon/">
-        CP Boot Daemon
-      </a>
-    </h1>
-
-    <span class="post-date">06 Mar 2016</span>
-
-    <p>Notes regarding the operation of <code class="highlighter-rouge">CP Boot Daemon</code> located at: <code class="highlighter-rouge">/sbin/cbd</code>. The <em>init</em> on my <code class="highlighter-rouge">SM-G920F</code> looks like:
-<img src="/assets/Screen Shot 2016-02-09 at 10.53.39 PM.png" alt="" /></p>
-
-<p><strong>TODO: add screen shot of cbd help output</strong></p>
-
-<p>The function of <code class="highlighter-rouge">cbd</code> is to perform early boot operations for the Cell Processor (CP) including parsing <code class="highlighter-rouge">modem.bin</code>, sending <code class="highlighter-rouge">BOOT</code> to the CP, validating <code class="highlighter-rouge">MAIN</code> CRC checksum, and numerous other operations as detailed in the Functions and IOCTLs table below.</p>
-
-<h1 id="functions-and-ioctls">Functions and IOCTLs</h1>
-
-<p>Fill this table in from cbd.idb database notes:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>IOCTL</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="highlighter-rouge">start_shannon_boot</code></td>
-      <td>&lt;…&gt;</td>
-    </tr>
-    <tr>
-      <td>…</td>
-      <td>…</td>
-    </tr>
-  </tbody>
-</table>
 
   </div>
   
