@@ -17,7 +17,7 @@ url:              http://arm.ninja
 baseurl:          /
 
 author:
-  name:           'Andrew Righter'
+  name:           '@theqlabs'
   url:            https://twitter.com/theqlabs
 
 paginate:        5  

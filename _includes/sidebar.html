@@ -25,8 +25,7 @@
           {% endif %}
         {% endif %}
       {% endfor %}
-
-      <span class="sidebar-nav-item">Currently v{{ site.version }}</span>
+			<a class="sidebar-nav-item{% if page.url == node.url %} active{% endif %}" href="{{ site.author.url }}"><small>{{ site.author.name }}</small></a>
     </nav>
 
     <p>&copy; {{ site.time | date: '%Y' }}. All rights reserved.</p>

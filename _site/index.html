@@ -62,8 +62,7 @@
           
         
       
-
-      <span class="sidebar-nav-item">Currently v0.0.1</span>
+			<a class="sidebar-nav-item" href="https://twitter.com/theqlabs"><small>@theqlabs</small></a>
     </nav>
 
     <p>&copy; 2016. All rights reserved.</p>
@@ -76,20 +75,18 @@
   
   <div class="post">
     <h1 class="post-title">
-      <a href="/2016/03/08/recursing-bb-like-a-boss/">
-        Recursing Basic Blocks like a Boss
+      <a href="/2016/03/08/intro-to-binary-ninja-api/">
+        Introduction to the Binary Ninja API
       </a>
     </h1>
 
     <span class="post-date">08 Mar 2016</span>
 
-    <p><code class="highlighter-rouge">TODO: re-write this, sounds like shit</code></p>
+    <p>As ninjas we value time, and the faster we are able to do something the better. Because of this I try to find tools to expedite my work, and so I have started messing around with <a href="https://binary.ninja">Binary Ninja</a> from the cool dudes over at <a href="https://vector35.com/">Vector 35</a> whom I love dearly for the incredible contributions they have made to CTF over the years, my favorite being <a href="https://github.com/ctfs/write-ups-2015/blob/master/csaw-ctf-2015/reverse/hacking-time-200/HackingTime_03e852ace386388eb88c39a02f88c773.nes">Hacking Time</a> and <a href="https://github.com/Vector35/PwnAdventureZ">PwnAdventureZ</a>.</p>
 
-<p>As ninjas we value time, and the faster we are able to do something the better. Because of this I try to find tools to expedite my work, and so I have started messing around with <a href="https://binary.ninja">Binary Ninja</a> from the cool dudes over at <a href="https://vector35.com/">Vector 35</a> whom I love dearly for the incredible contributions they have made to CTF over the years, my favorite being <a href="https://github.com/ctfs/write-ups-2015/blob/master/csaw-ctf-2015/reverse/hacking-time-200/HackingTime_03e852ace386388eb88c39a02f88c773.nes">Hacking Time</a> and <a href="https://github.com/Vector35/PwnAdventureZ">PwnAdventureZ</a>.</p>
+<p>While the UI is super sexy and clean, this post is focused on the Python <code class="highlighter-rouge">API</code> to see how quickly I can build a tool to <a href="http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/">Decode ARM64 syscalls</a> based on my last post. Thanks to <a href="twitter.com/psifertex">Jordan</a> for inviting me to the <code class="highlighter-rouge">BETA</code> and thanks to Peter who spent a couple hours solving my super novice issues and made this post possible. As always, thanks to <a href="http://www.twitter.com/rotlogix">rotlogix</a> who continues to inspire me to write these posts.</p>
 
-<p>While the UI is super sexy and clean, this post is focused on the Python <code class="highlighter-rouge">API</code> to see how quickly I can build a tool to <a href="http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/">Decode ARM64 syscalls</a> based on my last post. Thanks to <a href="twitter.com/psifertex">Jordan</a> for inviting me to the <code class="highlighter-rouge">BETA</code> and thanks to Peter who spent a couple hours solving my super novice issues and made this post possible.</p>
-
-<p><em>note: binary ninja has been lovingly abbrieviated <code class="highlighter-rouge">binja</code>, which i love, and will refer to it as such through the post</em></p>
+<p><em>note: binary ninja has been lovingly abbrieviated <code class="highlighter-rouge">binja</code>, and will be referred to as such through the post</em></p>
 
 <h4 id="setting-up">Setting up</h4>
 
@@ -105,11 +102,45 @@
 </code></pre>
 </div>
 
+<p>After spending some more time with different setups (<em>and trust me, the homebrew vs native python issue is a smash-laptop-against-a-wall type of problem</em>) I would recommend you install <code class="highlighter-rouge">virtualenv</code> for <code class="highlighter-rouge">binja</code> which is what I am running now and it’s working great. The main reason is that <code class="highlighter-rouge">virtualenv</code> will install a fresh copy of Python without messing with whatever is on your main system, you can get the dependencies installed and run <code class="highlighter-rouge">workon binja</code> to quickly get back to your environment.</p>
+
+<p>A great guide to follow would be the <a href="http://docs.python-guide.org/en/latest/dev/virtualenvs/">Hitchhiker’s Guide to Python</a></p>
+
+<h4 id="my-setup">My Setup</h4>
+
+<p>Requires <code class="highlighter-rouge">virtualenvwrapper.sh</code></p>
+
+<ul>
+  <li><code class="highlighter-rouge">mkvirtualenv binja</code></li>
+  <li><code class="highlighter-rouge">workon binja</code></li>
+</ul>
+
+<p><code class="highlighter-rouge">pip freeze &gt; requirements.txt</code> yields:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>appnope==0.1.0
+decorator==4.0.9
+gnureadline==6.3.3
+ipython==4.1.2
+ipython-genutils==0.1.0
+path.py==8.1.2
+pexpect==4.0.1
+pickleshare==0.6
+ptyprocess==0.5.1
+pycrypto==2.6.1
+pyreadline==2.1
+simplegeneric==0.8.1
+traitlets==4.1.0
+</code></pre>
+</div>
+
+<p>If you put the above into a <code class="highlighter-rouge">requirements.txt</code> file you can run <code class="highlighter-rouge">pip install -r requirements.txt</code> <strong>inside</strong> your virtualenv <code class="highlighter-rouge">binja</code> and have the same setup. I like to run inside <code class="highlighter-rouge">iPython</code> mostly because of the tab-complete features for quickly accessing objects.</p>
+
 <h4 id="throwing-down">Throwing Down</h4>
 
 <p>I was given a block of sample code to leverage the Python <code class="highlighter-rouge">API</code>:</p>
 
 <div class="highlighter-rouge"><pre class="highlight"><code>from binaryninja import *
+import time
 bv = BinaryViewType['Mach-O'].open("stack1")
 bv.update_analysis()
 time.sleep(5)
@@ -137,13 +168,13 @@ _printf
 </code></pre>
 </div>
 
-<p>It should be noted that currently in <code class="highlighter-rouge">BETA</code> the <code class="highlighter-rouge">time.sleep(5)</code> function is required due the lack of a callback function, so there is no way to know when your analysis is complete. While this makes things blazingly fast for larger binaries, adjusting <code class="highlighter-rouge">time.sleep(5)</code> is annoying and I was warned that this is being solved by implementing callback functionality.</p>
+<p>It should be noted that currently in <strong><code class="highlighter-rouge">BETA</code></strong> the <code class="highlighter-rouge">time.sleep(5)</code> function is required due the lack of a callback, so there is no way to know when your analysis is complete. While this makes things blazingly fast for larger binaries, adjusting <code class="highlighter-rouge">time.sleep(5)</code> is annoying and I was warned that this is being solved by implementing proper callback functionality.</p>
 
 <p>Despite this we see that <code class="highlighter-rouge">binja</code> performs as expected, it finds the symbols: <code class="highlighter-rouge">_main</code>, <code class="highlighter-rouge">__stack_chk_fail</code>, <code class="highlighter-rouge">_gets</code>, <code class="highlighter-rouge">_printf</code> and displays the start and ending addresses for each basic block associated with each symbol.</p>
 
 <h4 id="binja-plugin-to-decode-arm64-syscalls">Binja plugin to decode ARM64 syscalls</h4>
 
-<p>Now that we have a basic example working, we are ready to attempt to write a plug-in that decodes ARM64 syscalls, a crude algorithm for doing this is:</p>
+<p>Now that we have a basic example working, we are ready to attempt to write a plug-in that decodes ARM64 syscalls - the binary I will be using is <code class="highlighter-rouge">cbd</code>, Samsung’s CP Boot Daemon - a crude algorithm for doing this is:</p>
 
 <ul>
   <li>Search for supervisor call exceptions in <code class="highlighter-rouge">ARM64</code></li>
@@ -151,9 +182,182 @@ _printf
   <li>Lookup the value to identify the <code class="highlighter-rouge">syscall</code></li>
 </ul>
 
-<p><code class="highlighter-rouge">TODO: To do any type of lookup, i'll need a list of ARM64 syscalls in code</code></p>
+<p>To do this in <code class="highlighter-rouge">binja</code> we start similar to the above example, by recursing through each <code class="highlighter-rouge">basic block</code> but instead of just printing the addresses, we look for all <code class="highlighter-rouge">SVC</code> instructions. If you don’t remember why, go back and read my <a href="http://arm.ninja/2016/03/07/decoding-syscalls-in-arm64/">post</a> on the subject.</p>
 
-<p>To do this in <code class="highlighter-rouge">binja</code> we start similar to the above example, by recursing through each <code class="highlighter-rouge">basic block</code> but instead of just printing the addresses, we look for the instructions <code class="highlighter-rouge">SVC 0</code> or bytecode: <code class="highlighter-rouge">00 11 22 33</code>.</p>
+<p>Printing each <code class="highlighter-rouge">basic_block</code> object in <code class="highlighter-rouge">binja</code> is easy, and looks like this:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code># Isolate a function object, f1:
+
+f1 = bv.functions[0]
+f1.basic_blocks
+
+&gt;&gt;&gt; [&lt;block: aarch64@0x400f2c-0x400f44&gt;]
+</code></pre>
+</div>
+
+<p>and we can get the <code class="highlighter-rouge">basic_block</code> <strong>start</strong> and <strong>end</strong> address with:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code># Isolate a basic_block object, f1b1:
+f1b1 = f1.basic_blocks[0]
+
+# Function 1, Basic Block 1:
+hex(f1b1.start)
+&gt;&gt;&gt; '0x400f2cL'
+
+hex(f1b1.end)
+&gt;&gt;&gt; '0x400f44L'
+</code></pre>
+</div>
+
+<p>So we’ll want to generate all instructions between <code class="highlighter-rouge">hex(f1b1.start)</code> and <code class="highlighter-rouge">hex(f1b1.end)</code> doing so looks like:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ins = []
+start = f1b1.start
+end = f1b1.end
+while start != end:
+  x, size = bv.arch.get_instruction_text(bv.read(start, 4), start)
+  ins.append(x)
+  start += size
+</code></pre>
+</div>
+
+<p>The biggest piece of this to understand is the <code class="highlighter-rouge">get_instruction_text()</code> function located in <code class="highlighter-rouge">__init__.py</code>:</p>
+
+<p><img src="/assets/Screen Shot 2016-03-11 at 4.47.35 PM.png" alt="" /></p>
+
+<p>So <code class="highlighter-rouge">get_instruction_text()</code> wants <code class="highlighter-rouge">data</code>, <code class="highlighter-rouge">addr</code> as its arguments, obviously we know the address for our <code class="highlighter-rouge">basic_block</code> given above using <code class="highlighter-rouge">f1b1.start</code>, but to get the data we use the <code class="highlighter-rouge">bv.read()</code> function which requires <code class="highlighter-rouge">offset</code> and a <code class="highlighter-rouge">length</code>. <code class="highlighter-rouge">length</code> is defined as 4 for <code class="highlighter-rouge">ARM64</code> due to its fixed 4-byte instruction size. For <code class="highlighter-rouge">x86_64</code> you would use <code class="highlighter-rouge">16</code>.</p>
+
+<p><img src="/assets/Screen Shot 2016-03-12 at 1.18.47 AM.png" alt="bv.read()" /></p>
+
+<p>The instructions returned from the above code:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>[['stp', '   ', 'x29', ', ', 'x30', ', ', '[', 'sp', ', #', '-0x10', ']!'], 
+['adrp', '   ', 'x0', ', ', '0x473000'], 
+['mov', '    ', 'x29', ', ', 'sp'], 
+['add', '    ', 'x0', ', ', 'x0', ', ', '#', '0xf50'], 
+['bl', '     ', '0x448214'], ['bl', '     ', '0x439c28']]
+</code></pre>
+</div>
+
+<h4 id="search-for-supervisor-call-exceptions-in-arm64">Search for supervisor call exceptions in <code class="highlighter-rouge">ARM64</code>:</h4>
+<p>A quick-and-dirty algorithm:</p>
+
+<ul>
+  <li>Loop:
+    <ul>
+      <li>Enter <code class="highlighter-rouge">function</code></li>
+      <li>Enter <code class="highlighter-rouge">basic_block</code></li>
+      <li>Enumerate instructions in <code class="highlighter-rouge">basic_block</code></li>
+      <li>Search for <code class="highlighter-rouge">SVC</code></li>
+    </ul>
+  </li>
+</ul>
+
+<p>Because the instruction has spaces and its list type is not string-y enough for Python, we’ll need to do some Pythonic magic (<em>thanks Oren for helping with this part!</em>):</p>
+
+<h5 id="putting-it-all-together">Putting it all together</h5>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>for func in bv.functions:
+     for bb in func.basic_blocks:
+     	ins = []
+		start = bb.start
+		end = bb.end
+		while start != end:
+    		x, size = bv.arch.get_instruction_text(bv.read(start, 4), start)
+    		ins.append(x)
+    		start += size
+    	for index, item in enumerate(ins):
+    		if 'svc' in ''.join(map(str, ins[index])):
+        		print "function: %s" % func
+        		print "basic block: %s" % bb
+        		print "MOV: %s" % ins[index-1]
+        		print "SVC: %s" % ins[index]
+
+</code></pre>
+</div>
+
+<p>we found <strong>38</strong> <code class="highlighter-rouge">SVC</code> calls in <code class="highlighter-rouge">cbd</code> - <em>WOOHOO</em> - the above returns:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>function: &lt;func: aarch64@0x434268&gt;
+basic block: &lt;block: aarch64@0x434268-0x43427c&gt;
+MOV: ['mov', '    ', 'x8', ', ', '#', '0xae']
+SVC: ['svc', '    ', '#', '0']
+
+function: &lt;func: aarch64@0x4342f8&gt;
+basic block: &lt;block: aarch64@0x4342f8-0x43430c&gt;
+MOV: ['mov', '    ', 'x8', ', ', '#', '0x50']
+SVC: ['svc', '    ', '#', '0']
+
+function: &lt;func: aarch64@0x434310&gt;
+basic block: &lt;block: aarch64@0x434310-0x434318&gt;
+MOV: ['mov', '    ', 'x8', ', ', '#', '0x5e']
+SVC: ['svc', '    ', '#', '0']
+
+function: &lt;func: aarch64@0x434328&gt;
+basic block: &lt;block: aarch64@0x434328-0x43433c&gt;
+MOV: ['mov', '    ', 'x8', ', ', '#', '0x65']
+SVC: ['svc', '    ', '#', '0']
+
+...
+</code></pre>
+</div>
+
+<h4 id="check-the-immediate-value-being-moved-to-x8">Check the <code class="highlighter-rouge">immediate</code> value being moved to <code class="highlighter-rouge">X8</code></h4>
+
+<p>Using this we can see we have addresses for the <code class="highlighter-rouge">func</code> and address ranges for the <code class="highlighter-rouge">basic_blocks</code>. This should be all we need to disassemble the functions and look for the <code class="highlighter-rouge">MOV X8, &lt;immediate&gt;</code> we need to decode the correct <code class="highlighter-rouge">syscall</code>.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>for index, item in enumerate(ins):
+  count = 0
+  if 'svc' in ''.join(map(str, ins[index])):
+    for iter in ins[index-1]:
+      if count == 5:
+        print "syscall: %s @ func: %s " % (iter, func)
+        count += 1
+</code></pre>
+</div>
+
+<p><strong>Don’t judge me</strong>, it’s late and the above code “works” by maybe one sense of the defintion. In any case we get the syscalls printed out along with the function it is associated with. I print the function because there is a very large chance that the function is just a handler for the syscall and can be renamed or labeled as such. (ex.: <code class="highlighter-rouge">0x22</code> is <code class="highlighter-rouge">sys_nice</code> and <code class="highlighter-rouge">func@0x42a19c</code> can be labeled <code class="highlighter-rouge">sys_nice_handler</code>.)</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>syscall: 0x22 @ func: &lt;func: aarch64@0x42a19c&gt;
+syscall: 0x4f @ func: &lt;func: aarch64@0x42b57c&gt;
+syscall: 0x40 @ func: &lt;func: aarch64@0x434250&gt;
+syscall: 0xae @ func: &lt;func: aarch64@0x434268&gt;
+syscall: 0x3f @ func: &lt;func: aarch64@0x434280&gt;
+syscall: 0x2b @ func: &lt;func: aarch64@0x4342e0&gt;
+syscall: 0x50 @ func: &lt;func: aarch64@0x4342f8&gt;
+syscall: 0x5e @ func: &lt;func: aarch64@0x434310&gt;
+syscall: 0x65 @ func: &lt;func: aarch64@0x434328&gt;
+syscall: 0x19 @ func: &lt;func: aarch64@0x434358&gt;
+syscall: 0x42 @ func: &lt;func: aarch64@0x434388&gt;
+syscall: 0x39 @ func: &lt;func: aarch64@0x4343a0&gt;
+syscall: 0x3e @ func: &lt;func: aarch64@0x4343e8&gt;
+syscall: 0x84 @ func: &lt;func: aarch64@0x434400&gt;
+syscall: 0x51 @ func: &lt;func: aarch64@0x434418&gt;
+syscall: 0x92 @ func: &lt;func: aarch64@0x434430&gt;
+syscall: 0xde @ func: &lt;func: aarch64@0x434448&gt;
+syscall: 0xa7 @ func: &lt;func: aarch64@0x434460&gt;
+syscall: 0x60 @ func: &lt;func: aarch64@0x434490&gt;
+syscall: 0xe2 @ func: &lt;func: aarch64@0x4344a8&gt;
+syscall: 0xd7 @ func: &lt;func: aarch64@0x4344c0&gt;
+syscall: 0x5b @ func: &lt;func: aarch64@0x4344f0&gt;
+syscall: 0x38 @ func: &lt;func: aarch64@0x434508&gt;
+syscall: 0x77 @ func: &lt;func: aarch64@0x434550&gt;
+syscall: 0x49 @ func: &lt;func: aarch64@0x434568&gt;
+syscall: 0xa6 @ func: &lt;func: aarch64@0x434580&gt;
+syscall: 0xac @ func: &lt;func: aarch64@0x439fec&gt;
+syscall: 0xce @ func: &lt;func: aarch64@0x43a0a8&gt;
+syscall: 0x1d @ func: &lt;func: aarch64@0x43ea1c&gt;
+syscall: 0xdc @ func: &lt;func: aarch64@0x449760&gt;
+</code></pre>
+</div>
+
+<h4 id="lookup-value-to-identify-the-syscall">Lookup value to identify the <code class="highlighter-rouge">syscall</code></h4>
+
+<p>Now that we have the <code class="highlighter-rouge">&lt;immediate&gt;</code> we can do a look-up to enumerate which <code class="highlighter-rouge">syscall</code> it belongs to. The quick-and-dirty way is to just browse to <a href="http://syscalls.kernelgrok.com/">syscalls.kernelgrok.com</a> and look it up manually.  I’m going to work on cleaning up this code and make it an actual <strong>Binary Ninja Plug-in</strong>, should be uploaded <a href="https://github.com/ARMNinja">here</a> in the next few days. Binary Ninja is still in <code class="highlighter-rouge">BETA</code> so I don’t feel too rushed to get it out. Any questions as always, <a href="https://www.twitter.com/theqlabs">tweet</a> me up!</p>
+
+<p>Thanks for reading.</p>
+
+<p><strong>@theqlabs</strong></p>
 
 
   </div>
