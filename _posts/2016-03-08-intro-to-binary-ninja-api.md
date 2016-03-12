@@ -264,6 +264,54 @@ syscall: 0x1d @ func: <func: aarch64@0x43ea1c>
 syscall: 0xdc @ func: <func: aarch64@0x449760>
 ```
 
+##### The Ninja Way
+
+Ok so, the above code was pretty sloppy thanks to a lack of sleep, and with some time spent in the `Binary Ninja Slack Channel` today, Peter was able to squash some bugs having to do with the `get_reg_value_at_low_level_il_instruction` function and assist in getting a way cleaner version of this decode syscall done. The following uses the very powerful **Binary Ninja Low-Level Intermediate Language (LLIL)** and makes me super excited, because it has replaced hours of work with only a few lines of code: 
+
+```
+bv.functions[65].low_level_il[1]
+>>> <il: syscall>
+
+syscall = bv.functions[65].low_level_il[1]
+
+bv.functions[65].get_reg_value_at_low_level_il_instruction(bv.functions[65].low_level_il[1].address, "x8")
+>>> <const 0xae>
+```
+The `bv.functions[65].low_level_il` looks like this:
+
+```
+x8 = 0xae
+syscall
+add.q{*}(x0, 1 << 0xc)
+unimplemented
+if (u>) then 6 @ 0x42b4b8 else 22 @ 0x43427c
+goto 22 @ 0x43427c
+sp = sp - 0x20
+[sp] = x29
+[sp + 8] = x30
+x29 = sp
+[sp + 0x10] = x19
+w19 = w0
+call(0x428de8)
+x1 = x0
+x0 = -1
+[x1 + 0].q = w19
+x19 = [sp + 0x10].q
+x29 = [sp].q
+x30 = [8 + sp].q
+sp = sp + 0x20
+<return> jump(x30)
+jump(0x42b4e4)
+<return> jump(x30)
+jump(0x434280)
+```
+
+and in the UI like this: 
+
+![]({{ site.baseurl }}assets/Screen Shot 2016-03-12 at 1.10.38 PM.png)
+
+The gist of this is basically `bv.functions[65]` is a function I know has a `syscall`, the `.low_level_il` points to the `LowLevelILFunction` instance and `[1]` tells it to give me the 2nd element in the instance. Setting that to `syscall` and calling `get_reg_value_at_low_level_il_instruction` allows me to pass it the `address` of that syscall IL instance and tell it what register I am interested in `x8`. You can check all available registers by using: `bv.arch.regs`.
+
 #### Lookup value to identify the `syscall`
 
 Now that we have the `<immediate>` we can do a look-up to enumerate which `syscall` it belongs to. The quick-and-dirty way is to just browse to [syscalls.kernelgrok.com](http://syscalls.kernelgrok.com/) and look it up manually.  I'm going to work on cleaning up this code and make it an actual **Binary Ninja Plug-in**, should be uploaded [here](https://github.com/ARMNinja) in the next few days. Binary Ninja is still in `BETA` so I don't feel too rushed to get it out. Any questions as always, [tweet](https://www.twitter.com/theqlabs) me up! 
@@ -271,8 +319,6 @@ Now that we have the `<immediate>` we can do a look-up to enumerate which `sysca
 Thanks for reading.
 
 **@theqlabs**
-
-
 
 
 

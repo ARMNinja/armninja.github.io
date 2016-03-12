@@ -4,7 +4,7 @@
  <title>ARM Ninja</title>
  <link href="http://arm.ninja/atom.xml" rel="self"/>
  <link href="http://arm.ninja/"/>
- <updated>2016-03-12T01:24:39-08:00</updated>
+ <updated>2016-03-12T13:14:34-08:00</updated>
  <id>http://arm.ninja</id>
  <author>
    <name>@theqlabs</name>
@@ -285,6 +285,54 @@ syscall: 0x1d @ func: &amp;lt;func: aarch64@0x43ea1c&amp;gt;
 syscall: 0xdc @ func: &amp;lt;func: aarch64@0x449760&amp;gt;
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
+
+&lt;h5 id=&quot;the-ninja-way&quot;&gt;The Ninja Way&lt;/h5&gt;
+
+&lt;p&gt;Ok so, the above code was pretty sloppy thanks to a lack of sleep, and with some time spent in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Binary Ninja Slack Channel&lt;/code&gt; today, Peter was able to squash some bugs having to do with the &lt;code class=&quot;highlighter-rouge&quot;&gt;get_reg_value_at_low_level_il_instruction&lt;/code&gt; function and assist in getting a way cleaner version of this decode syscall done. The following uses the very powerful &lt;strong&gt;Binary Ninja Low-Level Intermediate Language (LLIL)&lt;/strong&gt; and makes me super excited, because it has replaced hours of work with only a few lines of code:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;bv.functions[65].low_level_il[1]
+&amp;gt;&amp;gt;&amp;gt; &amp;lt;il: syscall&amp;gt;
+
+syscall = bv.functions[65].low_level_il[1]
+
+bv.functions[65].get_reg_value_at_low_level_il_instruction(bv.functions[65].low_level_il[1].address, &quot;x8&quot;)
+&amp;gt;&amp;gt;&amp;gt; &amp;lt;const 0xae&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;bv.functions[65].low_level_il&lt;/code&gt; looks like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;x8 = 0xae
+syscall
+add.q{*}(x0, 1 &amp;lt;&amp;lt; 0xc)
+unimplemented
+if (u&amp;gt;) then 6 @ 0x42b4b8 else 22 @ 0x43427c
+goto 22 @ 0x43427c
+sp = sp - 0x20
+[sp] = x29
+[sp + 8] = x30
+x29 = sp
+[sp + 0x10] = x19
+w19 = w0
+call(0x428de8)
+x1 = x0
+x0 = -1
+[x1 + 0].q = w19
+x19 = [sp + 0x10].q
+x29 = [sp].q
+x30 = [8 + sp].q
+sp = sp + 0x20
+&amp;lt;return&amp;gt; jump(x30)
+jump(0x42b4e4)
+&amp;lt;return&amp;gt; jump(x30)
+jump(0x434280)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;and in the UI like this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-03-12 at 1.10.38 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The gist of this is basically &lt;code class=&quot;highlighter-rouge&quot;&gt;bv.functions[65]&lt;/code&gt; is a function I know has a &lt;code class=&quot;highlighter-rouge&quot;&gt;syscall&lt;/code&gt;, the &lt;code class=&quot;highlighter-rouge&quot;&gt;.low_level_il&lt;/code&gt; points to the &lt;code class=&quot;highlighter-rouge&quot;&gt;LowLevelILFunction&lt;/code&gt; instance and &lt;code class=&quot;highlighter-rouge&quot;&gt;[1]&lt;/code&gt; tells it to give me the 2nd element in the instance. Setting that to &lt;code class=&quot;highlighter-rouge&quot;&gt;syscall&lt;/code&gt; and calling &lt;code class=&quot;highlighter-rouge&quot;&gt;get_reg_value_at_low_level_il_instruction&lt;/code&gt; allows me to pass it the &lt;code class=&quot;highlighter-rouge&quot;&gt;address&lt;/code&gt; of that syscall IL instance and tell it what register I am interested in &lt;code class=&quot;highlighter-rouge&quot;&gt;x8&lt;/code&gt;. You can check all available registers by using: &lt;code class=&quot;highlighter-rouge&quot;&gt;bv.arch.regs&lt;/code&gt;.&lt;/p&gt;
 
 &lt;h4 id=&quot;lookup-value-to-identify-the-syscall&quot;&gt;Lookup value to identify the &lt;code class=&quot;highlighter-rouge&quot;&gt;syscall&lt;/code&gt;&lt;/h4&gt;
 

@@ -351,6 +351,54 @@ syscall: 0xdc @ func: &lt;func: aarch64@0x449760&gt;
 </code></pre>
 </div>
 
+<h5 id="the-ninja-way">The Ninja Way</h5>
+
+<p>Ok so, the above code was pretty sloppy thanks to a lack of sleep, and with some time spent in the <code class="highlighter-rouge">Binary Ninja Slack Channel</code> today, Peter was able to squash some bugs having to do with the <code class="highlighter-rouge">get_reg_value_at_low_level_il_instruction</code> function and assist in getting a way cleaner version of this decode syscall done. The following uses the very powerful <strong>Binary Ninja Low-Level Intermediate Language (LLIL)</strong> and makes me super excited, because it has replaced hours of work with only a few lines of code:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>bv.functions[65].low_level_il[1]
+&gt;&gt;&gt; &lt;il: syscall&gt;
+
+syscall = bv.functions[65].low_level_il[1]
+
+bv.functions[65].get_reg_value_at_low_level_il_instruction(bv.functions[65].low_level_il[1].address, "x8")
+&gt;&gt;&gt; &lt;const 0xae&gt;
+</code></pre>
+</div>
+<p>The <code class="highlighter-rouge">bv.functions[65].low_level_il</code> looks like this:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>x8 = 0xae
+syscall
+add.q{*}(x0, 1 &lt;&lt; 0xc)
+unimplemented
+if (u&gt;) then 6 @ 0x42b4b8 else 22 @ 0x43427c
+goto 22 @ 0x43427c
+sp = sp - 0x20
+[sp] = x29
+[sp + 8] = x30
+x29 = sp
+[sp + 0x10] = x19
+w19 = w0
+call(0x428de8)
+x1 = x0
+x0 = -1
+[x1 + 0].q = w19
+x19 = [sp + 0x10].q
+x29 = [sp].q
+x30 = [8 + sp].q
+sp = sp + 0x20
+&lt;return&gt; jump(x30)
+jump(0x42b4e4)
+&lt;return&gt; jump(x30)
+jump(0x434280)
+</code></pre>
+</div>
+
+<p>and in the UI like this:</p>
+
+<p><img src="/assets/Screen Shot 2016-03-12 at 1.10.38 PM.png" alt="" /></p>
+
+<p>The gist of this is basically <code class="highlighter-rouge">bv.functions[65]</code> is a function I know has a <code class="highlighter-rouge">syscall</code>, the <code class="highlighter-rouge">.low_level_il</code> points to the <code class="highlighter-rouge">LowLevelILFunction</code> instance and <code class="highlighter-rouge">[1]</code> tells it to give me the 2nd element in the instance. Setting that to <code class="highlighter-rouge">syscall</code> and calling <code class="highlighter-rouge">get_reg_value_at_low_level_il_instruction</code> allows me to pass it the <code class="highlighter-rouge">address</code> of that syscall IL instance and tell it what register I am interested in <code class="highlighter-rouge">x8</code>. You can check all available registers by using: <code class="highlighter-rouge">bv.arch.regs</code>.</p>
+
 <h4 id="lookup-value-to-identify-the-syscall">Lookup value to identify the <code class="highlighter-rouge">syscall</code></h4>
 
 <p>Now that we have the <code class="highlighter-rouge">&lt;immediate&gt;</code> we can do a look-up to enumerate which <code class="highlighter-rouge">syscall</code> it belongs to. The quick-and-dirty way is to just browse to <a href="http://syscalls.kernelgrok.com/">syscalls.kernelgrok.com</a> and look it up manually.  I’m going to work on cleaning up this code and make it an actual <strong>Binary Ninja Plug-in</strong>, should be uploaded <a href="https://github.com/ARMNinja">here</a> in the next few days. Binary Ninja is still in <code class="highlighter-rouge">BETA</code> so I don’t feel too rushed to get it out. Any questions as always, <a href="https://www.twitter.com/theqlabs">tweet</a> me up!</p>
