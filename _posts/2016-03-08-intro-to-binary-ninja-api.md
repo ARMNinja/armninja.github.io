@@ -274,7 +274,7 @@ bv.functions[65].low_level_il[1]
 
 syscall = bv.functions[65].low_level_il[1]
 
-bv.functions[65].get_reg_value_at_low_level_il_instruction(bv.functions[65].low_level_il[1].address, "x8")
+bv.functions[65].get_reg_value_at_low_level_il_instruction(syscall.address, "x8")
 >>> <const 0xae>
 ```
 The `bv.functions[65].low_level_il` looks like this:
