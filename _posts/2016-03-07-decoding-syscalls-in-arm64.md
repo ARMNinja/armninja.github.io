@@ -123,3 +123,6 @@ I left some details out about the above process because this was meant as an int
 
 **NOTE: To learn more about exceptions in `ARMv8-a` check out `Chapter D1` in the `Aarch64 Reference Manual`** 
 
+A great tip by @michalmalik to use the `man` pages to reference [Architecture Calling Conventions](http://man7.org/linux/man-pages/man2/syscall.2.html) in case you forget what registers are used. Thanks Michal! 
+
+
