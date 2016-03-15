@@ -9,7 +9,7 @@ Eventually as you are reverse-engineering an `ARM` binary you will come across a
 
 *Even if you understand what this code is doing (as I suspect you may) read on, as this post intends to bring to light several security models specific to the `ARMv8-a` architecture.*
 
-To understand what this code is doing, you need to understand a few concepts first. Since this is an `ARM` specific blog, this is what we will focus on. Specifically in the context of the `ARMv8-a` architecture. An extremely helpful overview of this architecture can be found here: [https://quequero.org/2014/04/introduction-to-arm-architecture/]() - I suggest you read it before continuing.
+To understand what this code is doing, you need to understand a few concepts first. Since this is an `ARM` specific blog, this is what we will focus on. Specifically in the context of the `ARMv8-a` architecture. An extremely helpful overview of this architecture can be found [here](https://quequero.org/2014/04/introduction-to-arm-architecture/) - I suggest you read it before continuing.
 
 ### Exception Levels
 
