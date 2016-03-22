@@ -4,7 +4,7 @@
  <title>ARM Ninja</title>
  <link href="http://arm.ninja/atom.xml" rel="self"/>
  <link href="http://arm.ninja/"/>
- <updated>2016-03-12T13:14:34-08:00</updated>
+ <updated>2016-03-22T12:58:21-07:00</updated>
  <id>http://arm.ninja</id>
  <author>
    <name>@theqlabs</name>
@@ -295,7 +295,7 @@ syscall: 0xdc @ func: &amp;lt;func: aarch64@0x449760&amp;gt;
 
 syscall = bv.functions[65].low_level_il[1]
 
-bv.functions[65].get_reg_value_at_low_level_il_instruction(bv.functions[65].low_level_il[1].address, &quot;x8&quot;)
+bv.functions[65].get_reg_value_at_low_level_il_instruction(syscall.address, &quot;x8&quot;)
 &amp;gt;&amp;gt;&amp;gt; &amp;lt;const 0xae&amp;gt;
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
@@ -356,7 +356,7 @@ jump(0x434280)
 
 &lt;p&gt;&lt;em&gt;Even if you understand what this code is doing (as I suspect you may) read on, as this post intends to bring to light several security models specific to the &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; architecture.&lt;/em&gt;&lt;/p&gt;
 
-&lt;p&gt;To understand what this code is doing, you need to understand a few concepts first. Since this is an &lt;code class=&quot;highlighter-rouge&quot;&gt;ARM&lt;/code&gt; specific blog, this is what we will focus on. Specifically in the context of the &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; architecture. An extremely helpful overview of this architecture can be found here: &lt;a href=&quot;&quot;&gt;https://quequero.org/2014/04/introduction-to-arm-architecture/&lt;/a&gt; - I suggest you read it before continuing.&lt;/p&gt;
+&lt;p&gt;To understand what this code is doing, you need to understand a few concepts first. Since this is an &lt;code class=&quot;highlighter-rouge&quot;&gt;ARM&lt;/code&gt; specific blog, this is what we will focus on. Specifically in the context of the &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; architecture. An extremely helpful overview of this architecture can be found &lt;a href=&quot;https://quequero.org/2014/04/introduction-to-arm-architecture/&quot;&gt;here&lt;/a&gt; - I suggest you read it before continuing.&lt;/p&gt;
 
 &lt;h3 id=&quot;exception-levels&quot;&gt;Exception Levels&lt;/h3&gt;
 
@@ -523,6 +523,8 @@ is welcome.
 &lt;p&gt;I left some details out about the above process because this was meant as an intro. Some of the topics I did not discuss are &lt;code class=&quot;highlighter-rouge&quot;&gt;Exception Syndrome Registers&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;Exception Link Registers&lt;/code&gt;, and &lt;code class=&quot;highlighter-rouge&quot;&gt;PSTATE&lt;/code&gt;.&lt;/p&gt;
 
 &lt;p&gt;&lt;strong&gt;NOTE: To learn more about exceptions in &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; check out &lt;code class=&quot;highlighter-rouge&quot;&gt;Chapter D1&lt;/code&gt; in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Aarch64 Reference Manual&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;A great tip by @michalmalik to use the &lt;code class=&quot;highlighter-rouge&quot;&gt;man&lt;/code&gt; pages to reference &lt;a href=&quot;http://man7.org/linux/man-pages/man2/syscall.2.html&quot;&gt;Architecture Calling Conventions&lt;/a&gt; in case you forget what registers are used. Thanks Michal!&lt;/p&gt;
 
 </content>
  </entry>
