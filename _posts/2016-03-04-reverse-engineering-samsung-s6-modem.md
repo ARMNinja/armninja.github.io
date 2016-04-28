@@ -7,8 +7,6 @@ So I was a little late to the game, and just got my hands on a Samsung Galaxy S6
 
 Anyone interested in helping or contributing can hit me with the Tweets `@theqlabs` or submit a PR.
 
-**TL;DR - i do not have a decrypted modem.bin yet, but here are all my notes, send help. <3**
-
 # Obtaining Files
 - Download **Samsung** [SM-G920F](http://www.sammobile.com) **Galaxy S6** Firmware
 
