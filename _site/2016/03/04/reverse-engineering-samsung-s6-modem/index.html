@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-us">
 
-  <script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', 'UA-75446577-1', 'auto');
-  ga('send', 'pageview');
-
-</script>
-
   <head>
   <link href="http://gmpg.org/xfn/11" rel="profile">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -39,6 +28,17 @@
   <!-- RSS -->
   <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
 </head>
+
+  <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-75446577-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
 
 
   <body class="theme-base-arm layout-reverse">
@@ -86,10 +86,6 @@
   <h1 class="post-title">Reverse Engineering Samsung S6 Modem</h1>
   <span class="post-date">04 Mar 2016</span>
   <p>So I was a little late to the game, and just got my hands on a Samsung Galaxy S6, specifically the <code class="highlighter-rouge">SM-G920F</code> which will be the topic of discussion in this post. I am quite curious as to understanding the structure of the device’s <code class="highlighter-rouge">modem.bin</code> file. While I haven’t been able to get a de-obfuscated/decrypted version of <code class="highlighter-rouge">modem.bin</code> yet, hopefully this post will help others quickly get up-to-speed and assist in the pursuit of one.</p>
-
-<p>Anyone interested in helping or contributing can hit me with the Tweets <code class="highlighter-rouge">@theqlabs</code> or submit a PR.</p>
-
-<p><strong>TL;DR - i do not have a decrypted modem.bin yet, but here are all my notes, send help. &lt;3</strong></p>
 
 <h1 id="obtaining-files">Obtaining Files</h1>
 <ul>
@@ -475,15 +471,6 @@ am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://
           <a href="/2016/03/08/intro-to-binary-ninja-api/">
             Introduction to the Binary Ninja API
             <small>08 Mar 2016</small>
-          </a>
-        </h3>
-      </li>
-    
-      <li>
-        <h3>
-          <a href="/2016/03/07/decoding-syscalls-in-arm64/">
-            Decoding Syscalls in ARM64
-            <small>07 Mar 2016</small>
           </a>
         </h3>
       </li>

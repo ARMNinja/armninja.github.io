@@ -63,8 +63,7 @@ If you want to isolate the `BOOT` section of the file you would do so by calcula
 
 | Address | Bytes | Length | Description | Value |
 | --- | --- | --- | --- | --- |
-| `0020`-`0028` | **`42 4F 4F 54`** | 4-8 Bytes | `NAME` of Section | BOOT |
-| `0028`-`002C` | **`00 00 00 00`** | 4 Bytes | Unused  | |
+| `0020`-`002C` | **`42 4F 4F 54`** | 12 Bytes | `NAME` of Section | BOOT |
 | `002C`-`0030` | **`00 02 00 00`** | 4 Bytes | Unknown |
 | `0030`-`0034` | **`00 00 00 00`** | 4 Bytes | Unknown | 
 | `0034`-`0038` | **`48 2B 00 00`** | 4 Bytes | `SIZE` of `BOOT` | `0x2B48` bytes |
@@ -82,8 +81,7 @@ Similar to `BOOT` you would isolate `MAIN` with the following `dd` command:
 
 | Address | Bytes | Length | Description | Value |
 | --- | --- | --- | --- | --- |
-| `0040` - `0048` | **`4D 41 49 4E`** | 4-8 Bytes | `NAME` of Section | MAIN |
-| `0048` - `004C` | **`00 00 00 00`** | 4 Bytes | Unused  | |
+| `0040` - `004C` | **`4D 41 49 4E`** | 12 Bytes | `NAME` of Section | MAIN |
 | `004C` - `0050` | **`60 2D 00 00`** | 4 Bytes | `VERSION`* | `0x2D60` 1.16.16 |
 | `0050` - `0054` | **`00 00 00 40`** | 4 Bytes | Unknown | 
 | `0054` - `0058` | **`40 60 68 02`** | 4 Bytes | `SIZE` of `MAIN` | `0x2686040` or 40,394,816 bytes or ~40MB |
@@ -98,8 +96,7 @@ Similar to `BOOT` you would isolate `MAIN` with the following `dd` command:
 
 | Address | Bytes | Length | Description | Value |
 | --- | --- | --- | --- | --- |
-| `0060` - `0068` | **`4E 56 00 00`** | 4-8 Bytes | `NAME` of Section | NV |
-| `0068` - `006C` | **`00 00 00 00`** | 4 Bytes | Unused  | |
+| `0060` - `006C` | **`4E 56 00 00`** | 12 Bytes | `NAME` of Section | NV |
 | `006C` - `0070` | **`00 00 00 00`** | 4 Bytes | Unknown |
 | `0070` - `0074` | **`00 00 EE 47`** | 4 Bytes | Unknown | 
 | `0074` - `0078` | **`00 00 10 00`** | 4 Bytes | `SIZE` of `NV` | `0x2B48` bytes |
