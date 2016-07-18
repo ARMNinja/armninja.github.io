@@ -108,17 +108,15 @@ The above instructions are checking the returned value from the system call, sto
 
 	Branches to the address stored in the Link Register (LR)
 
-Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the `sys_getppid` handler!
+Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the `write` handler! (TODO: ignore the *sys_getppid*, too lazy to take another screen shot ATM will fix.)
 
 ![]({{ site.baseurl }}assets/Screen Shot 2016-03-06 at 10.33.07 PM.png)
-
-![]({{ site.baseurl }}assets/Screen Shot 2016-03-06 at 10.29.19 PM.png)
 
 I left some details out about the above process because this was meant as an intro. Some of the topics I did not discuss are `Exception Syndrome Registers`, `Exception Link Registers`, and `PSTATE`.
 
 **NOTE: To learn more about exceptions in `ARMv8-a` check out `Chapter D1` in the `Aarch64 Reference Manual`** 
 
-Huge thanks to reddit user [SidJenkins](https://www.reddit.com/user/SidJenkins) who explained why I'm an idiot WRT to ARM syscall values, and the conditional compare instructions. You can see the comment thread [here](https://www.reddit.com/r/lowlevel/comments/49qmuq/decoding_syscalls_in_arm64_arm_ninja/) as well as a better technical description about how the **CMN** and **CINV** instructions function in this use-case.
+Thanks to reddit user [SidJenkins](https://www.reddit.com/user/SidJenkins) who explained why I'm an idiot WRT to ARM syscall values, and the conditional compare instructions. You can see the comment thread [here](https://www.reddit.com/r/lowlevel/comments/49qmuq/decoding_syscalls_in_arm64_arm_ninja/) as well as a better technical description about how the **CMN** and **CINV** instructions function in this use-case.
 
 A great tip by @michalmalik to use the `man` pages to reference [Architecture Calling Conventions](http://man7.org/linux/man-pages/man2/syscall.2.html) in case you forget what registers are used. Thanks Michal! 
 

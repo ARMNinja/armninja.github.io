@@ -4,7 +4,7 @@
  <title>ARM Ninja</title>
  <link href="http://arm.ninja/atom.xml" rel="self"/>
  <link href="http://arm.ninja/"/>
- <updated>2016-07-18T00:14:08-07:00</updated>
+ <updated>2016-07-18T00:27:22-07:00</updated>
  <id>http://arm.ninja</id>
  <author>
    <name>@theqlabs</name>
@@ -501,15 +501,15 @@ if state == aarch64 &amp;amp;&amp;amp; return_from_exception {
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
 
-&lt;p&gt;Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the &lt;code class=&quot;highlighter-rouge&quot;&gt;sys_getppid&lt;/code&gt; handler!&lt;/p&gt;
+&lt;p&gt;Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the &lt;code class=&quot;highlighter-rouge&quot;&gt;write&lt;/code&gt; handler! (TODO: ignore the &lt;em&gt;sys_getppid&lt;/em&gt;, too lazy to take another screen shot ATM will fix.)&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-03-06 at 10.33.07 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/assets/Screen Shot 2016-03-06 at 10.29.19 PM.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;I left some details out about the above process because this was meant as an intro. Some of the topics I did not discuss are &lt;code class=&quot;highlighter-rouge&quot;&gt;Exception Syndrome Registers&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;Exception Link Registers&lt;/code&gt;, and &lt;code class=&quot;highlighter-rouge&quot;&gt;PSTATE&lt;/code&gt;.&lt;/p&gt;
 
 &lt;p&gt;&lt;strong&gt;NOTE: To learn more about exceptions in &lt;code class=&quot;highlighter-rouge&quot;&gt;ARMv8-a&lt;/code&gt; check out &lt;code class=&quot;highlighter-rouge&quot;&gt;Chapter D1&lt;/code&gt; in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Aarch64 Reference Manual&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Thanks to reddit user &lt;a href=&quot;https://www.reddit.com/user/SidJenkins&quot;&gt;SidJenkins&lt;/a&gt; who explained why I’m an idiot WRT to ARM syscall values, and the conditional compare instructions. You can see the comment thread &lt;a href=&quot;https://www.reddit.com/r/lowlevel/comments/49qmuq/decoding_syscalls_in_arm64_arm_ninja/&quot;&gt;here&lt;/a&gt; as well as a better technical description about how the &lt;strong&gt;CMN&lt;/strong&gt; and &lt;strong&gt;CINV&lt;/strong&gt; instructions function in this use-case.&lt;/p&gt;
 
 &lt;p&gt;A great tip by @michalmalik to use the &lt;code class=&quot;highlighter-rouge&quot;&gt;man&lt;/code&gt; pages to reference &lt;a href=&quot;http://man7.org/linux/man-pages/man2/syscall.2.html&quot;&gt;Architecture Calling Conventions&lt;/a&gt; in case you forget what registers are used. Thanks Michal!&lt;/p&gt;
 

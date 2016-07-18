@@ -581,15 +581,15 @@ if state == aarch64 &amp;&amp; return_from_exception {
 </code></pre>
 </div>
 
-<p>Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the <code class="highlighter-rouge">sys_getppid</code> handler!</p>
+<p>Now that you understand what is happening with this function it is a good idea to rename it in IDA so that you can identify when a function is calling the <code class="highlighter-rouge">write</code> handler! (TODO: ignore the <em>sys_getppid</em>, too lazy to take another screen shot ATM will fix.)</p>
 
 <p><img src="/assets/Screen Shot 2016-03-06 at 10.33.07 PM.png" alt="" /></p>
-
-<p><img src="/assets/Screen Shot 2016-03-06 at 10.29.19 PM.png" alt="" /></p>
 
 <p>I left some details out about the above process because this was meant as an intro. Some of the topics I did not discuss are <code class="highlighter-rouge">Exception Syndrome Registers</code>, <code class="highlighter-rouge">Exception Link Registers</code>, and <code class="highlighter-rouge">PSTATE</code>.</p>
 
 <p><strong>NOTE: To learn more about exceptions in <code class="highlighter-rouge">ARMv8-a</code> check out <code class="highlighter-rouge">Chapter D1</code> in the <code class="highlighter-rouge">Aarch64 Reference Manual</code></strong></p>
+
+<p>Thanks to reddit user <a href="https://www.reddit.com/user/SidJenkins">SidJenkins</a> who explained why I’m an idiot WRT to ARM syscall values, and the conditional compare instructions. You can see the comment thread <a href="https://www.reddit.com/r/lowlevel/comments/49qmuq/decoding_syscalls_in_arm64_arm_ninja/">here</a> as well as a better technical description about how the <strong>CMN</strong> and <strong>CINV</strong> instructions function in this use-case.</p>
 
 <p>A great tip by @michalmalik to use the <code class="highlighter-rouge">man</code> pages to reference <a href="http://man7.org/linux/man-pages/man2/syscall.2.html">Architecture Calling Conventions</a> in case you forget what registers are used. Thanks Michal!</p>
 
